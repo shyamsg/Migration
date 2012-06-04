@@ -1,6 +1,7 @@
 #include "migrate.h"
 
 #define DIM_MISMATCH 127
+#define MAXPOPS 50
 
 using namespace std;
 using namespace __gnu_cxx;
@@ -398,7 +399,9 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
     gsl_matrix *eQ = expM(Q);
     gsl_matrix_free(m);
     gsl_matrix_free(Q);
-    gsl_vector_view P = gsl_matrix_subcolumn(eQ, eQ->size2-1, 0, eQ->size1-1);
+    //gsl_vector_view P = gsl_matrix_subcolumn(eQ, eQ->size2-1, 0, eQ->size1-1);
+    gsl_vector_view Prow = gsl_matrix_column(eQ, eQ->size2-1);
+    gsl_vector_view P = gsl_vector_subvector(&Prow.vector, 0, eQ->size1-1);
     for (uint i=0; i<numdemes; i++) {
       for (uint j=i+1; j<numdemes; j++) {
 	gsl_vector * dists = gsl_vector_alloc(3);;
@@ -443,22 +446,19 @@ contain the latest list. While applying to the estimated
 rates from the current N and m, the whole list must be given.
 ************************************************************/
 gsl_vector * average_coal_rates(gsl_vector_view origrates, \
-                                vector<vector<int> > * popdict)
+                                vector<vector<int> > & popdict)
 {
   gsl_vector *newRates;
-  if (popdict->size() == 0) {
+  if (popdict.size() == 0) {
     newRates = gsl_vector_alloc(origrates.vector.size);
     gsl_vector_memcpy(newRates, &origrates.vector);
     return newRates;
   }
   uint numdemes = 0;
-  for (uint i=0; i<popdict->size(); i++) {
-    numdemes += (*popdict)[i].size();
+  for (uint i=0; i<popdict.size(); i++) {
+    numdemes += popdict[i].size();
   }
-  vector<vector<int> > ptc;
-  if (popdict) { 
-    ptc = pop_to_col(*popdict, numdemes);
-  }
+  vector<vector<int> > ptc = pop_to_col(popdict, numdemes);
   newRates = gsl_vector_alloc(ptc.size());
   for (uint row=0; row<ptc.size(); row++) {
     double totRates = 0.0;
@@ -475,23 +475,22 @@ gsl_vector * average_coal_rates(gsl_vector_view origrates, \
 Merges the sequence of population dictionaries to get one 
 big one.
 ************************************************************/
-vector<vector<int> > * make_merged_pd(vector<vector<vector<int> > > & pdlist)
+vector<vector<int> > make_merged_pd(vector<vector<vector<int> > > & pdlist)
 {
-  vector<vector<int> > * pdnew;
-  pdnew = (vector<vector<int> > *) malloc(sizeof(vector<vector<int> >));
+  vector<vector<int> > pdnew = vector<vector<int> >();
   if (pdlist.size() == 0) {
     return pdnew;
   } else if (pdlist.size() == 1) {
-    pdnew->insert(pdnew->end(), pdlist[0].begin(), pdlist[0].end());
+    pdnew.insert(pdnew.end(), pdlist[0].begin(), pdlist[0].end());
     return pdnew;
   }
   vector<vector<int> >::iterator vvit;
   vector<int>::iterator vit;
-  pdnew->insert(pdnew->end(), pdlist[pdlist.size()-1].begin(), pdlist[pdlist.size()-1].end());
+  pdnew.insert(pdnew.end(), pdlist[pdlist.size()-1].begin(), pdlist[pdlist.size()-1].end());
   for (int i=pdlist.size()-1; i>0; i--) {
     vector<vector<int> > pdprev = vector<vector<int> >(pdlist[i-1]);
     vector<vector<int> > pdtemp;
-    for (vvit=pdnew->begin(); vvit<pdnew->end();vvit++) {
+    for (vvit=pdnew.begin(); vvit<pdnew.end();vvit++) {
       vector<int> temp;  
       for (vit=vvit->begin(); vit<vvit->end(); vit++) {
         temp.insert(temp.end(), pdprev[*vit].begin(), pdprev[*vit].end());
@@ -499,8 +498,8 @@ vector<vector<int> > * make_merged_pd(vector<vector<vector<int> > > & pdlist)
       sort(temp.begin(), temp.end());
       pdtemp.push_back(temp);
     }
-    pdnew->clear();
-    pdnew->insert(pdnew->end(), pdtemp.begin(), pdtemp.end());
+    pdnew.clear();
+    pdnew.insert(pdnew.end(), pdtemp.begin(), pdtemp.end());
   }
   return pdnew;
 }
@@ -538,17 +537,19 @@ double compute_frob_norm_mig(unsigned int n, const double * x, double * grad, vo
   gsl_matrix * temp = gsl_matrix_alloc(d->P0->size1, Pcurr->size2);
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, d->P0, Pcurr, 0.0, temp);
   gsl_matrix_free(Pcurr);
-  gsl_vector_view estRates = gsl_matrix_subcolumn(temp, temp->size2-1, 0, \
-						  temp->size1-1);
+  //  gsl_vector_view estRates = gsl_matrix_subcolumn(temp, temp->size2-1, 0, 
+  //						  temp->size1-1);
+  gsl_vector_view estRow = gsl_matrix_column(temp, temp->size2-1);
+  gsl_vector_view estRates = gsl_vector_subvector(&estRow.vector, 0, temp->size1-1);
   gsl_matrix_free(temp);
   if (d->obs_coal_rates.vector.size != estRates.vector.size) {
     throw "Dimensions of observed and computed vectors do not match.";
   }
-  cout << "testing" << endl;
-  cout << d->popdict->size() << endl;
-  gsl_vector * avobsrates = average_coal_rates(d->obs_coal_rates, d->popdict);
-  gsl_vector * avestrates = average_coal_rates(estRates, d->popdict);
-  cout << "t2" << endl;
+  //  cout << "testing" << endl;
+  //  cout << d->popdict->size() << endl;
+  gsl_vector * avobsrates = average_coal_rates(d->obs_coal_rates, *(d->popdict));
+  gsl_vector * avestrates = average_coal_rates(estRates, *(d->popdict));
+  //  cout << "t2" << endl;
   gsl_vector_sub(avobsrates, avestrates);
   gsl_vector_free(avestrates);
   double fnorm = gsl_blas_dnrm2(avobsrates);
@@ -590,13 +591,15 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   uint numdemes = int((sqrt(8*nr - 7))/2);
   cfnm_data * d = (cfnm_data * ) malloc(sizeof(cfnm_data));
   d->P0 = gsl_matrix_alloc(nr, nr);
-  d->popdict = NULL;
+  vector<vector<int> > tempPopdict;
+  tempPopdict.reserve(MAXPOPS);
+  d->popdict = &tempPopdict;
   gsl_matrix_set_identity(d->P0);
   vector<vector<double> > xopts;
   pdlist.clear();
   nlopt_opt opt;
-  vector<vector<int> > pdmerged;
   for (uint ns=0; ns<numslices; ns++) {
+    cout << "starting slice number " << ns << endl;
     gsl_vector * Ninv;
     vector<double> mtemp;
     bool reestimate = 0;
@@ -612,11 +615,12 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 
       // Set aug params for function
       d->t = t[ns];
-      d->popdict = make_merged_pd(pdlist);
-      //      d->popdict.insert(d->popdict.end(), pdmerged.begin(), pdmerged.end());
+      vector<vector<int> > pdmerged = make_merged_pd(pdlist);
+      tempPopdict.clear();
+      tempPopdict.insert(tempPopdict.end(), pdmerged.begin(), pdmerged.end());
       d->obs_coal_rates = gsl_matrix_column(obs_rates, ns);
       // Set up minimizer
-      opt = nlopt_create(NLOPT_GN_DIRECT_L, nparams);
+      opt = nlopt_create(NLOPT_LN_, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
       nlopt_set_min_objective(opt, compute_frob_norm_mig, d);
@@ -626,8 +630,9 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       double bestfun = 1e200;
       double * bestxopt = (double *) malloc(sizeof(double)*nparams);
 
-      for (uint rest=NRESTARTS; rest>0; rest++ && bestfun < FTOL) {
+      for (uint rest=NRESTARTS; rest>0; rest--) {
 	//random starting point
+	if (bestfun < FTOL) break;
 	for (uint kind=0; kind<numdemes; kind++) {
 	  x[kind] = gsl_ran_flat(r, 5e-5, 1e-3);
 	}
@@ -657,15 +662,18 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	d->P0 = gsl_matrix_alloc(temp->size1, temp->size2);
 	gsl_matrix_memcpy(d->P0, temp);
 	gsl_matrix_free(temp);
-	reestimate = 1;
+	reestimate = true;
 	pdlist.push_back(popdict);
 	numdemes = popdict.size();
+	cout << "\trestimating due to population merging." << endl;
       } else {
 	vector<double> currxopt;
 	for (uint kind=0; kind<numdemes; kind++) {
 	  currxopt.push_back(1./bestxopt[kind]);
 	}
 	currxopt.insert(currxopt.end(), bestxopt+numdemes, bestxopt+nparams);
+	reestimate=false;
+	xopts.push_back(currxopt);
       }
       free(bestxopt);
     } while(reestimate);

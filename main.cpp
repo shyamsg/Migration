@@ -60,15 +60,23 @@ int main()
 	vector<vector<vector<int> > > yahoo = vector<vector<vector<int> > >(2);
 	yahoo[0] = vector<vector<int> >(2); yahoo[0][0].push_back(0); yahoo[0][0].push_back(1); yahoo[0][1].push_back(2);
 	yahoo[1] = vector<vector<int> >(1); yahoo[1][0].push_back(0); yahoo[1][0].push_back(1);	
-	vector<vector<int> > * test = make_merged_pd(yahoo);
-	for (uint i=0; i<test->size(); i++) {
+	vector<vector<int> > test = make_merged_pd(yahoo);
+	for (uint i=0; i<test.size(); i++) {
 	  cout << "[ ";
-	  for (uint j=0; j<((*test)[i]).size(); j++) {
-	    cout << (*test)[i][j] << " ";
+	  for (uint j=0; j<test[i].size(); j++) {
+	    cout << test[i][j] << " ";
 	  }
 	  cout << "]" << endl;
 	}
         vector<vector<vector<int> > > testlist;
-	vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-3, 1);
+	vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-2, 1);
+	cout << estParms.size() << endl;
+	for (int i=0; i<estParms.size(); i++) {
+	  cout << "Estimates for slice number " << i << endl;
+	  for (int j=0; j<estParms[i].size(); j++) {
+	    cout << estParms[i][j] << " ";
+	  }
+	  cout << endl;
+	}
 	return 0;
 }

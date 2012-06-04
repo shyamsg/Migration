@@ -35,12 +35,13 @@
 using namespace std;
 using namespace __gnu_cxx;
 
+typedef unsigned int uint;
 typedef struct {
-	double t;
-	gsl_vector_view obs_coal_rates;
-	gsl_matrix * P0;
-	vector<vector<int> > * popdict;
-	uint count;
+  double t;
+  gsl_vector_view obs_coal_rates;
+  gsl_matrix * P0;
+  vector<vector<int> > * popdict;
+  uint count;
 } cfnm_data;
 
 void gsl_matrix_print(gsl_matrix * M);
@@ -59,8 +60,8 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
 				     double t, gsl_matrix * P0,		\
 				     double merge_threshold, bool useMigration=false);
 gsl_vector * average_coal_rates(gsl_vector_view origrates, \
-				  vector<vector<int> > * popdict);
-vector<vector<int> > * make_merged_pd(vector<vector<vector<int> > > & pdlist);
+				  vector<vector<int> > & popdict);
+vector<vector<int> > make_merged_pd(vector<vector<vector<int> > > & pdlist);
 double compute_frob_norm_mig(uint n, const double * x, double * grad, void * data);
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
 				     vector<vector<vector<int > > > &pdlist, \
