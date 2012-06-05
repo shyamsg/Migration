@@ -71,9 +71,9 @@ int main()
         vector<vector<vector<int> > > testlist;
 	vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-2, 1);
 	cout << estParms.size() << endl;
-	for (int i=0; i<estParms.size(); i++) {
+	for (uint i=0; i<estParms.size(); i++) {
 	  cout << "Estimates for slice number " << i << endl;
-	  for (int j=0; j<estParms[i].size(); j++) {
+	  for (uint j=0; j<estParms[i].size(); j++) {
 	    cout << estParms[i][j] << " ";
 	  }
 	  cout << endl;

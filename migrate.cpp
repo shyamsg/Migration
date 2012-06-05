@@ -580,7 +580,8 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_rng * r; 
   gsl_rng_env_setup(); 
   T = gsl_rng_default; 
-  r = gsl_rng_alloc (T); 
+  r = gsl_rng_alloc (T);
+  gsl_rng_set(r, time(NULL));
   /* END RANDGEN SETUP */
 
   uint NRESTARTS = 40;
@@ -604,7 +605,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
     vector<double> mtemp;
     bool reestimate = 0;
     do {
-      d->count = 0;
       uint nparams = int((numdemes*(numdemes+1))/2.0);
       double lb[nparams];
       double ub[nparams];
@@ -620,7 +620,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       tempPopdict.insert(tempPopdict.end(), pdmerged.begin(), pdmerged.end());
       d->obs_coal_rates = gsl_matrix_column(obs_rates, ns);
       // Set up minimizer
-      opt = nlopt_create(NLOPT_LN_, nparams);
+      opt = nlopt_create(NLOPT_GN_MLSL_LDS, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
       nlopt_set_min_objective(opt, compute_frob_norm_mig, d);
@@ -631,7 +631,9 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       double * bestxopt = (double *) malloc(sizeof(double)*nparams);
 
       for (uint rest=NRESTARTS; rest>0; rest--) {
+	d->count = 0;
 	//random starting point
+	cout << rest;
 	if (bestfun < FTOL) break;
 	for (uint kind=0; kind<numdemes; kind++) {
 	  x[kind] = gsl_ran_flat(r, 5e-5, 1e-3);
@@ -647,6 +649,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	  bestfun = minf;
 	  memcpy(bestxopt, x,sizeof(double)*nparams);
 	}
+	cout << "th iteration had " << d->count << " function evaluations." << endl; 
       }
       free(x);
       nlopt_destroy(opt);
