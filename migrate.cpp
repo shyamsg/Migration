@@ -451,6 +451,7 @@ gsl_vector * average_coal_rates(gsl_vector_view origrates, \
   gsl_vector *newRates;
   if (popdict.size() == 0) {
     newRates = gsl_vector_alloc(origrates.vector.size);
+    cout << newRates->size  <<  "_-_" << endl;
     gsl_vector_memcpy(newRates, &origrates.vector);
     return newRates;
   }
