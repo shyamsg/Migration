@@ -35,6 +35,11 @@
 using namespace std;
 using namespace __gnu_cxx;
 
+#define EPS_GRAD  1e-12
+#define NRESTARTS 2
+#define FTOL      1e-20
+
+
 typedef unsigned int uint;
 typedef struct {
   double t;
@@ -62,10 +67,10 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
 gsl_vector * average_coal_rates(gsl_vector_view origrates, \
 				  vector<vector<int> > & popdict);
 vector<vector<int> > make_merged_pd(vector<vector<vector<int> > > & pdlist);
-double compute_frob_norm_mig(uint n, const double * x, double * grad, void * data);
+double compute_dist_and_grad(uint n, const double * x, double * grad, void * data);
+double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv);
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
 				     vector<vector<vector<int > > > &pdlist, \
 				     double merge_threshold, bool useMigration=false);
-
 #endif
 

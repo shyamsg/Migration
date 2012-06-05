@@ -503,33 +503,13 @@ vector<vector<int> > make_merged_pd(vector<vector<vector<int> > > & pdlist)
   }
   return pdnew;
 }
-
 /***********************************************************
-Function to compute the order 2 norm distance between the 
-observed coalescent intensities and coalescent intensities 
-computed using the given N and m (contained in x).
-The input is given as x - a vector with N and m values
-P0 is the initial scrambling matrix. Note that we work with 1/N and
-m values, as preconditioning to make the problem more spherical.
-***********************************************************/
-double compute_frob_norm_mig(unsigned int n, const double * x, double * grad, void * data)
+Function takes the migration matrix, the popsize inverses, 
+the cfnm_data (auxillary data).
+************************************************************/
+
+double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv)
 {
-  cfnm_data * d = (cfnm_data *) data;
-  d->count++;
-  uint k = int((sqrt(1+8*n) - 1)/2.0);
-  gsl_vector * Ne_inv = gsl_vector_alloc(k);
-  for (uint i=0; i<k; i++) {
-    Ne_inv->data[i] = x[i];
-  }
-  gsl_matrix * m = gsl_matrix_calloc(k,k);
-  uint cnt = 0;
-  // make the m matrix from ms
-  for (uint i=0; i<k; i++) {
-    for (uint j=i+1; j<k; j++) {
-      m->data[i*k+j] = m->data[j*k+i] = x[k+cnt];
-      cnt += 1;
-    }
-  }
   gsl_matrix * Q = comp_pw_coal_cont(m, Ne_inv);
   gsl_matrix_scale(Q, d->t);
   gsl_matrix * Pcurr = expM(Q);
@@ -554,12 +534,59 @@ double compute_frob_norm_mig(unsigned int n, const double * x, double * grad, vo
   gsl_vector_free(avestrates);
   double fnorm = gsl_blas_dnrm2(avobsrates);
   gsl_vector_free(avobsrates);
+  return fnorm;
+}
+
+/***********************************************************
+Function to compute the order 2 norm distance between the 
+observed coalescent intensities and coalescent intensities 
+computed using the given N and m (contained in x).
+The input is given as x - a vector with N and m values
+P0 is the initial scrambling matrix. Note that we work with 1/N and
+m values, as preconditioning to make the problem more spherical.
+***********************************************************/
+double compute_dist_and_grad(unsigned int n, const double * x, double * grad, void * data)
+{
+  cfnm_data * d = (cfnm_data *) data;
+  d->count++;
+  //  if (d->count%100 == 0) cout << "moving " << d->count << endl;
+  uint k = int((sqrt(1+8*n) - 1)/2.0);
+  gsl_vector * Ne_inv = gsl_vector_alloc(k);
+  for (uint i=0; i<k; i++) {
+    Ne_inv->data[i] = x[i];
+  }
+  gsl_matrix * m = gsl_matrix_calloc(k,k);
+  uint cnt = 0;
+  // make the m matrix from ms
+  for (uint i=0; i<k; i++) {
+    for (uint j=i+1; j<k; j++) {
+      m->data[i*k+j] = m->data[j*k+i] = x[k+cnt];
+      cnt += 1;
+    }
+  }
+  double fnorm = compute_2norm_mig(d, m, Ne_inv);
   //#    grad = grad_Frob_cdiff(x, t, obs_coal_rates, P0, popdict, epsilon=1e-5)
   //#    print grad
   //#    return tempo, grad
   if (grad) {
-    throw "Gradient not yet implemented.";
+    for (uint nd=0; nd<k; nd++) {
+      Ne_inv->data[nd] += EPS_GRAD;
+      grad[nd] = (fnorm - compute_2norm_mig(d, m, Ne_inv))/EPS_GRAD;
+      Ne_inv->data[nd] -= EPS_GRAD;
+    }
+    cnt = 0;
+    for (uint p1=0; p1<k; p1++) {
+      for (uint p2=p1+1; p2<k; p2++) {
+	m->data[p1*k+p2] += EPS_GRAD; 
+	m->data[p2*k+p1] += EPS_GRAD;
+	grad[k+cnt] = (fnorm - compute_2norm_mig(d, m, Ne_inv))/EPS_GRAD;
+	m->data[p1*k+p2] -= EPS_GRAD;
+	m->data[p2*k+p1] -= EPS_GRAD;
+      }
+    }
   }
+  gsl_matrix_free(m);
+  gsl_vector_free(Ne_inv);
   return fnorm;
 }
 
@@ -584,8 +611,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_rng_set(r, time(NULL));
   /* END RANDGEN SETUP */
 
-  uint NRESTARTS = 40;
-  double FTOL = 1e-13;
   double minf;
   uint numslices = t.size();
   uint nr = obs_rates->size1 + 1;
@@ -598,9 +623,9 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_matrix_set_identity(d->P0);
   vector<vector<double> > xopts;
   pdlist.clear();
-  nlopt_opt opt;
+  nlopt_opt opt, opt_local;
   for (uint ns=0; ns<numslices; ns++) {
-    cout << "starting slice number " << ns << endl;
+    cout << endl << "starting slice number " << ns << endl;
     gsl_vector * Ninv;
     vector<double> mtemp;
     bool reestimate = 0;
@@ -620,11 +645,42 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       tempPopdict.insert(tempPopdict.end(), pdmerged.begin(), pdmerged.end());
       d->obs_coal_rates = gsl_matrix_column(obs_rates, ns);
       // Set up minimizer
-      opt = nlopt_create(NLOPT_GN_MLSL_LDS, nparams);
+      /* Various possible algorithms,
+	 NLOPT_GN_DIRECT
+	 NLOPT_GN_DIRECT_L
+	 NLOPT_GLOBAL_DIRECT_L_RAND
+	 NLOPT_GLOBAL_DIRECT_NOSCAL, NLOPT_GLOBAL_DIRECT_L_NOSCAL
+	 NLOPT_GN_ORIG_DIRECT, NLOPT_GN_ORIG_DIRECT_L
+	 NLOPT_GN_CRS2_LM
+	 NLOPT_G_MLSL_LDS, NLOPT_G_MLSL
+	 NLOPT_GD_STOGO, or NLOPT_GD_STOGO_RAND
+	 NLOPT_GN_ISRES
+	 NLOPT_LN_COBYLA
+	 NLOPT_LN_BOBYQA
+	 NLOPT_LN_NEWUOA
+	 NLOPT_LN_NEWUOA_BOUND
+	 NLOPT_LN_PRAXIS
+	 NLOPT_LN_NELDERMEAD
+	 NLOPT_LN_SBPLX
+	 NLOPT_LD_MMA
+	 NLOPT_LD_SLSQP
+	 NLOPT_LD_LBFGS
+	 NLOPT_LD_TNEWTON_PRECOND_RESTART, NLOPT_LD_TNEWTON_PRECOND
+	 NLOPT_LD_TNEWTON_RESTART, NLOPT_LD_TNEWTON
+	 NLOPT_LD_VAR2, NLOPT_LD_VAR1
+	 NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
+       */
+      opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
-      nlopt_set_min_objective(opt, compute_frob_norm_mig, d);
+      nlopt_set_min_objective(opt, compute_dist_and_grad, d);
       nlopt_set_xtol_rel(opt, 1e-12);
+
+      opt_local = nlopt_create(NLOPT_LN_SBPLX, nparams);
+      nlopt_set_lower_bounds(opt_local, lb);
+      nlopt_set_upper_bounds(opt_local, ub);
+      nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
+      nlopt_set_xtol_rel(opt, 1e-14);
 
       double * x = (double *) malloc(sizeof(double)*nparams);
       double bestfun = 1e200;
@@ -633,10 +689,9 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       for (uint rest=NRESTARTS; rest>0; rest--) {
 	d->count = 0;
 	//random starting point
-	cout << rest;
 	if (bestfun < FTOL) break;
 	for (uint kind=0; kind<numdemes; kind++) {
-	  x[kind] = gsl_ran_flat(r, 5e-5, 1e-3);
+	  x[kind] = gsl_ran_flat(r, 1e-5, 1e-3);
 	}
 	for (uint kind=numdemes; kind<nparams; kind++) {
 	  x[kind] = gsl_ran_flat(r, 1e-8, 1e-3);
@@ -644,18 +699,31 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	int retcode = 0;
 	retcode = nlopt_optimize(opt, x, &minf);
 	if (retcode < 0) {
-	  printf("nlopt failed!\n");
+	  printf("nlopt first step failed!\n");
+	}
+#ifdef DEBUG
+	else {
+	  printf("Completed NM optimization in %d fevals.\n", d->count);
+	}
+#endif
+	d->count = 0;
+	retcode = nlopt_optimize(opt_local, x, &minf);
+	if (retcode < 0) {
+	  printf("nlopt second step failed!\n");
 	} else if (minf < bestfun) {
 	  bestfun = minf;
-	  memcpy(bestxopt, x,sizeof(double)*nparams);
+	  memcpy(bestxopt, x, sizeof(double)*nparams);
 	}
-	cout << "th iteration had " << d->count << " function evaluations." << endl; 
+#ifdef DEBUG
+	printf("Completed second step with %d fevals.\n", d->count);
+#endif
       }
       free(x);
       nlopt_destroy(opt);
       //check for population mergers
       Ninv = gsl_vector_alloc(numdemes);
       memcpy(Ninv->data, bestxopt, sizeof(double)*numdemes);
+      mtemp.clear();
       mtemp.insert(mtemp.end(), bestxopt+numdemes, bestxopt+nparams);
       vector<vector<int > > popdict = find_pop_merges(Ninv, mtemp, d->t, d->P0, \
 						      merge_threshold, useMigration);
@@ -666,9 +734,14 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	gsl_matrix_memcpy(d->P0, temp);
 	gsl_matrix_free(temp);
 	reestimate = true;
+	bestfun = 1e200;
 	pdlist.push_back(popdict);
 	numdemes = popdict.size();
-	cout << "\trestimating due to population merging." << endl;
+#ifdef DEBUG
+	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
+        copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
+	cout << endl;
+#endif
       } else {
 	vector<double> currxopt;
 	for (uint kind=0; kind<numdemes; kind++) {
@@ -706,4 +779,3 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   }
   return xopts;
 }
-
