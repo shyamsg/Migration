@@ -422,14 +422,17 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
     }
     gsl_matrix_free(eQ);
   } else {
+    //    cout << "mtemp " << mtemp.size() << endl;
+    //    copy(mtemp.begin(), mtemp.end(), ostream_iterator<double>(cout, " "));
+    //    cout << endl;
     uint cnt = 0;
     for (uint ii=0; ii<numdemes; ii++) {
       for (uint jj=ii+1; jj<numdemes; jj++) {
 	if (mtemp[cnt] > merge_threshold) {
 	  popdict[ii].push_back(jj);
 	  popdict[jj].push_back(ii);
-	  cnt += 1;
 	}
+	cnt += 1;
       }
     }
   }
@@ -449,10 +452,49 @@ gsl_vector * average_coal_rates(gsl_vector_view origrates, \
                                 vector<vector<int> > & popdict)
 {
   gsl_vector *newRates;
+  double a = 0;
   if (popdict.size() == 0) {
     newRates = gsl_vector_alloc(origrates.vector.size);
-    cout << newRates->size  <<  "_-_" << endl;
-    gsl_vector_memcpy(newRates, &origrates.vector);
+    if (origrates.vector.size > 9) {
+      a = gsl_vector_get(&origrates.vector, 9);
+      newRates->data[9] = gsl_vector_get(&origrates.vector, 9);
+    }
+    if (origrates.vector.size > 8) {
+      a = newRates->data[8];
+      newRates->data[8] = gsl_vector_get(&origrates.vector, 8);
+    }
+    if (origrates.vector.size > 7) {
+      a = newRates->data[7];
+      newRates->data[7] = gsl_vector_get(&origrates.vector, 7);
+    }
+    if (origrates.vector.size > 6) {
+      a = newRates->data[6];
+      newRates->data[6] = gsl_vector_get(&origrates.vector, 6);
+    }
+    if (origrates.vector.size > 5) {
+      a = newRates->data[5];
+      newRates->data[5] = gsl_vector_get(&origrates.vector, 5);
+    }
+    if (origrates.vector.size > 4) {
+      a = newRates->data[4];
+      newRates->data[4] = gsl_vector_get(&origrates.vector, 4);
+    }
+    if (origrates.vector.size > 3) {
+      a = newRates->data[3];
+      newRates->data[3] = gsl_vector_get(&origrates.vector, 3);
+    }
+    if (origrates.vector.size > 2) {
+      a = newRates->data[2];
+      newRates->data[2] = gsl_vector_get(&origrates.vector, 2);
+    }
+    if (origrates.vector.size > 1) {
+      a = newRates->data[1];
+      newRates->data[1] = gsl_vector_get(&origrates.vector, 1);
+    }
+    if (origrates.vector.size > 0) {
+      a = newRates->data[0];
+      newRates->data[0] = gsl_vector_get(&origrates.vector, 0);
+    }
     return newRates;
   }
   uint numdemes = 0;
@@ -550,7 +592,7 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
 {
   cfnm_data * d = (cfnm_data *) data;
   d->count++;
-  //  if (d->count%100 == 0) cout << "moving " << d->count << endl;
+  if (d->count%10000 == 0) cout << "moving " << d->count << endl;
   uint k = int((sqrt(1+8*n) - 1)/2.0);
   gsl_vector * Ne_inv = gsl_vector_alloc(k);
   for (uint i=0; i<k; i++) {
