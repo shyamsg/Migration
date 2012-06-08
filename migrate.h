@@ -36,7 +36,7 @@ using namespace std;
 using namespace __gnu_cxx;
 
 #define EPS_GRAD  1e-12
-#define NRESTARTS 2
+#define NRESTARTS 10
 #define FTOL      1e-20
 
 

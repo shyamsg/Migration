@@ -91,7 +91,7 @@ int main(int argc, char **argv)
   //  gsl_matrix_print(conv);
   //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
   vector<vector<vector<int> > > testlist;
-  vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-2, true);
+  vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-3, true);
   //  cout << estParms.size() << endl;
   for (uint i=0; i<estParms.size(); i++) {
     cout << "Estimates for slice number " << i << endl;
@@ -101,5 +101,17 @@ int main(int argc, char **argv)
     cout << endl;
   }
   gsl_matrix_free(conv);
+  /*
+  conv = gsl_matrix_alloc(2,2);
+  conv->data[0] = 1.3;
+  conv->data[1] = 1.7;
+  conv->data[2] = 2.1;
+  conv->data[3] = 1.4;
+
+  gsl_matrix_print(conv);
+  gsl_matrix * test = gsl_matrix_alloc(2,2);
+  invert_matrix(conv, test);
+  gsl_matrix_print(test);
+  */
   return 0;
 }
