@@ -9,8 +9,8 @@
 CC = g++
 
 # define any compile-time flags
-CFLAGS = -Wall -g -DHAVE_INLINE
-DEBUG = -DDEBUG
+#CFLAGS = -Wall -g -DHAVE_INLINE
+CFLAGS = -Wall -g -DHAVE_INLINE -DDEBUG
 
 # define any directories containing header files other than /usr/include
 #
@@ -61,7 +61,7 @@ $(MAIN): $(OBJS)
 # the rule(a .c file) and $@: the name of the target of the rule (a .o file)
 # (see the gnu make manual section about automatic variables)
 .cpp.o:
-	$(CC) $(CFLAGS) $(DEBUG) $(INCLUDES) -c $< -o $@
+	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
 
 clean:
 	rm -f *.o *~ $(MAIN)
