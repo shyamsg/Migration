@@ -67,7 +67,6 @@ $(MAIN): $(OBJS)
 
 debug: CFLAGS += -g -DDEBUG
 debug: $(MAIN)
-	$(CC) $(CFLAGS) $(INCLUDES) -o $(MAIN) $(OBJS) $(LFLAGS) $(LIBS)
 
 clean:
 	rm -f *.o *~ $(MAIN)
