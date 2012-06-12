@@ -34,7 +34,7 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai)
   gsl_linalg_LU_decomp(AA, P, &s);
   double det = gsl_linalg_LU_det(AA, s);
   if (fabs(det) < 1e-10) {
-    cout << "determinant is low " << det << endl;
+    throw "Determinant is low";
   }
   /* backsubstitute to get the inverse */
   gsl_linalg_LU_invert(AA, P, Ai);
@@ -696,6 +696,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       double * bestxopt = (double *) malloc(sizeof(double)*nparams);
 
       for (uint rest=NRESTARTS; rest>0; rest--) {
+        bool reset = false;
 	d->count = 0;
 	//random starting point
 	if (bestfun < FTOL) break;
@@ -706,7 +707,13 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	  x[kind] = gsl_ran_flat(r, 1e-8, 1e-3);
 	}
 	int retcode = 0;
-	retcode = nlopt_optimize(opt, x, &minf);
+	try {
+	  retcode = nlopt_optimize(opt, x, &minf);
+	} catch (const char * exception) {
+	  cout << exception << endl;
+	  reset = true;
+	}
+	if (reset) continue;
 	if (retcode < 0) {
 	  printf("nlopt first step failed!\n");
 	}
