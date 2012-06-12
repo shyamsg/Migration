@@ -32,6 +32,10 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai)
   gsl_matrix_memcpy(AA, A);	/* copy A to AA */
   /* perform LU-factorization */
   gsl_linalg_LU_decomp(AA, P, &s);
+  double det = gsl_linalg_LU_det(AA, s);
+  if (fabs(det) < 1e-10) {
+    cout << "determinant is low " << det << endl;
+  }
   /* backsubstitute to get the inverse */
   gsl_linalg_LU_invert(AA, P, Ai);
   //  gsl_matrix_free(AA);
