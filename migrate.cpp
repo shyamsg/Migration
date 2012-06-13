@@ -19,7 +19,7 @@ void gsl_matrix_print(gsl_matrix * M)
 }
 
 /* matrix inversion routing using LU-factorization */
-int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai)
+int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (double)
 {
   /* check matrix sizes */
   if(! A->size1 == A->size2 && Ai->size1 == Ai->size2 && A->size1 == Ai->size1)
@@ -33,13 +33,14 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai)
   /* perform LU-factorization */
   gsl_linalg_LU_decomp(AA, P, &s);
   double det = gsl_linalg_LU_det(AA, s);
-  if (fabs(det) < 1e-10) {
-    throw "Determinant is low";
+  if (fabs(det) < 1e-35) {
+    cout << "Determinant is low: ";
+    throw det;
   }
   /* backsubstitute to get the inverse */
   gsl_linalg_LU_invert(AA, P, Ai);
-  //  gsl_matrix_free(AA);
-  //  gsl_permutation_free(P);
+  gsl_matrix_free(AA);
+  gsl_permutation_free(P);
   return 0;
 }
 
@@ -632,14 +633,14 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_matrix_set_identity(d->P0);
   vector<vector<double> > xopts;
   pdlist.clear();
-  nlopt_opt opt, opt_local;
+  nlopt_opt opt;
   for (uint ns=0; ns<numslices; ns++) {
     cout << endl << "starting slice number " << ns << endl;
     gsl_vector * Ninv;
     vector<double> mtemp;
     bool reestimate = 0;
     do {
-      uint nparams = int((numdemes*(numdemes+1))/2.0);
+      uint nparams = uint((numdemes*(numdemes+1))/2.0);
       double lb[nparams];
       double ub[nparams];
       for (uint np=0; np<nparams; np++) {
@@ -685,11 +686,14 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       nlopt_set_min_objective(opt, compute_dist_and_grad, d);
       nlopt_set_xtol_rel(opt, 1e-15);
 
+#ifdef LOCAL
+      nlopt_opt opt_local;
       opt_local = nlopt_create(NLOPT_LN_SBPLX, nparams);
       nlopt_set_lower_bounds(opt_local, lb);
       nlopt_set_upper_bounds(opt_local, ub);
       nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
       nlopt_set_xtol_rel(opt, 1e-18);
+#endif
 
       double * x = (double *) malloc(sizeof(double)*nparams);
       double bestfun = 1e200;
@@ -709,24 +713,25 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	int retcode = 0;
 	try {
 	  retcode = nlopt_optimize(opt, x, &minf);
-	} catch (const char * exception) {
-	  cout << exception << endl;
+	} catch (double detValue) {
+	  cout << detValue << endl;
+	  rest++;
 	  reset = true;
 	}
 	if (reset) continue;
 	if (retcode < 0) {
 	  printf("nlopt first step failed!\n");
 	}
-#ifdef DEBUG
 	else {
+#ifdef DEBUG
 	  printf("Completed NM optimization in %d fevals.\n", d->count);
+#endif
 	  if (minf < bestfun) {
 	    bestfun = minf;
 	    memcpy(bestxopt, x, sizeof(double)*nparams);
 	  }
 	}
-#endif
-/*
+#ifdef LOCAL
 	d->count = 0;
 	retcode = nlopt_optimize(opt_local, x, &minf);
 	if (retcode < 0) {
@@ -738,7 +743,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 #ifdef DEBUG
 	printf("Completed second step with %d fevals.\n", d->count);
 #endif
-*/
+#endif
       }
       free(x);
       nlopt_destroy(opt);
@@ -769,10 +774,25 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	for (uint kind=0; kind<numdemes; kind++) {
 	  currxopt.push_back(1./bestxopt[kind]);
 	}
-	currxopt.insert(currxopt.end(), bestxopt+numdemes, bestxopt+nparams);
+	for (uint testind=numdemes; testind <= nparams; testind++) {
+	  if (*(bestxopt+testind) < 1e-10) {
+	    currxopt.push_back(0.0);
+	  } else {
+	    currxopt.push_back(*(bestxopt+testind));
+	  }
+	}
+	    
 	reestimate=false;
 	xopts.push_back(currxopt);
       }
+#ifdef DEBUG
+      cout << "Best function estimate " << bestfun << endl;
+      if (bestfun < 1) {
+	cout << "Nparams: " << nparams << "\t";
+        copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
+	cout << endl;       
+      }
+#endif
       free(bestxopt);
     } while(reestimate);
     gsl_matrix * m = gsl_matrix_calloc(numdemes, numdemes);

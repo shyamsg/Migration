@@ -36,8 +36,8 @@ using namespace std;
 using namespace __gnu_cxx;
 
 #define EPS_GRAD  1e-12
-#define NRESTARTS 10
-#define FTOL      1e-20
+#define NRESTARTS 40
+#define FTOL      1e-12
 
 
 typedef unsigned int uint;
@@ -50,7 +50,7 @@ typedef struct {
 } cfnm_data;
 
 void gsl_matrix_print(gsl_matrix * M);
-int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai);
+int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai)  throw (double);
 gsl_matrix * comp_pw_coal_cont(gsl_matrix * m, gsl_vector * Ne_inv);
 gsl_matrix * expM(gsl_matrix * Q);
 gsl_matrix * conv_scrambling_matrix(gsl_matrix * P);

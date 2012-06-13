@@ -50,7 +50,7 @@ MAIN = migrate
 # deleting dependencies appended to the file from 'make depend'
 #
 
-.PHONY: depend clean debug all
+.PHONY: depend clean debug debuglocal local all
 
 all: $(MAIN)
 	@echo Migrate program has been compiled
@@ -67,6 +67,12 @@ $(MAIN): $(OBJS)
 
 debug: CFLAGS += -g -DDEBUG
 debug: $(MAIN)
+
+debuglocal: CFLAGS += -g -DDEBUG -DLOCAL
+debuglocal: $(MAIN)
+
+local: CFLAGS += -DLOCAL
+local: $(MAIN)
 
 clean:
 	rm -f *.o *~ $(MAIN)
