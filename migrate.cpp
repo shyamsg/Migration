@@ -559,7 +559,9 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
 {
   cfnm_data * d = (cfnm_data *) data;
   d->count++;
-  //  if (d->count%10000 == 0) cout << "moving " << d->count << endl;
+#ifdef DEBUG
+  if(d->count%100000 == 0) cout << "Done with " << d->count << " evals." << endl;
+#endif
   uint k = int((sqrt(1+8*n) - 1)/2.0);
   gsl_vector * Ne_inv = gsl_vector_alloc(k);
   for (uint i=0; i<k; i++) {
@@ -641,19 +643,31 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
     bool reestimate = 0;
     do {
       uint nparams = uint((numdemes*(numdemes+1))/2.0);
-      double lb[nparams];
-      double ub[nparams];
-      for (uint np=0; np<nparams; np++) {
-	lb[np] = 1e-15;
-	ub[np] = 1e-1;
-      }
-
       // Set aug params for function
       d->t = t[ns];
       vector<vector<int> > pdmerged = make_merged_pd(pdlist);
       tempPopdict.clear();
       tempPopdict.insert(tempPopdict.end(), pdmerged.begin(), pdmerged.end());
       d->obs_coal_rates = gsl_matrix_column(obs_rates, ns);
+
+      double lb[nparams];
+      double ub[nparams];
+      for (uint np=0; np<numdemes; np++) {
+	lb[np] = 1e-15;
+	ub[np] = 1e-1;
+      }
+      gsl_vector * temprates = average_coal_rates(d->obs_coal_rates, pdmerged);
+      uint cnt = numdemes;
+      for (uint ii=0; ii<numdemes; ii++) {
+	for (uint jj=ii+1; jj<numdemes; jj++) {
+	  lb[cnt] = (temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)\
+	    ? 0 : 1e-15;
+	  ub[cnt] = (temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)\
+	    ? 0 : 1e-1;
+	  cnt++;
+	}
+      }
+
       // Set up minimizer
       /* Various possible algorithms,
 	 NLOPT_GN_DIRECT
@@ -680,11 +694,12 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	 NLOPT_LD_VAR2, NLOPT_LD_VAR1
 	 NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
        */
-      opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
+      opt = nlopt_create(NLOPT_LD_SLSQP, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
       nlopt_set_min_objective(opt, compute_dist_and_grad, d);
-      nlopt_set_xtol_rel(opt, 1e-15);
+      //      nlopt_set_maxeval(opt, MAXEVAL);
+      nlopt_set_ftol_abs(opt, 1e-15);
 
 #ifdef LOCAL
       nlopt_opt opt_local;
@@ -692,7 +707,8 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       nlopt_set_lower_bounds(opt_local, lb);
       nlopt_set_upper_bounds(opt_local, ub);
       nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
-      nlopt_set_xtol_rel(opt, 1e-18);
+      //      nlopt_set_maxeval(opt_local, MAXEVAL/10);
+      nlopt_set_ftol_abs(opt_local, 1e-15);
 #endif
 
       double * x = (double *) malloc(sizeof(double)*nparams);
@@ -720,11 +736,11 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	}
 	if (reset) continue;
 	if (retcode < 0) {
-	  printf("nlopt first step failed!\n");
+	  printf("nlopt first step failed - %d!\n", retcode);
 	}
 	else {
 #ifdef DEBUG
-	  printf("Completed NM optimization in %d fevals.\n", d->count);
+	  printf("Completed first step optimization in %d fevals.\n", d->count);
 #endif
 	  if (minf < bestfun) {
 	    bestfun = minf;
@@ -733,20 +749,30 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	}
 #ifdef LOCAL
 	d->count = 0;
-	retcode = nlopt_optimize(opt_local, x, &minf);
+	try {
+	  retcode = nlopt_optimize(opt_local, x, &minf);
+	} catch (double detValue) {
+	  cout << detValue << endl;
+	  rest++; 
+	  reset = true;
+	}
+	if (reset) continue;
 	if (retcode < 0) {
-	  printf("nlopt second step failed!\n");
+	  printf("nlopt second step failed - %d!\n", retcode);
 	} else if (minf < bestfun) {
 	  bestfun = minf;
 	  memcpy(bestxopt, x, sizeof(double)*nparams);
 	}
 #ifdef DEBUG
-	printf("Completed second step with %d fevals.\n", d->count);
+	printf("Completed second step optimization with %d fevals.\n", d->count);
 #endif
 #endif
       }
       free(x);
       nlopt_destroy(opt);
+#ifdef LOCAL
+      nlopt_destroy(opt_local);
+#endif
       //check for population mergers
       Ninv = gsl_vector_alloc(numdemes);
       memcpy(Ninv->data, bestxopt, sizeof(double)*numdemes);
@@ -774,7 +800,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	for (uint kind=0; kind<numdemes; kind++) {
 	  currxopt.push_back(1./bestxopt[kind]);
 	}
-	for (uint testind=numdemes; testind <= nparams; testind++) {
+	for (uint testind=numdemes; testind < nparams; testind++) {
 	  if (*(bestxopt+testind) < 1e-10) {
 	    currxopt.push_back(0.0);
 	  } else {

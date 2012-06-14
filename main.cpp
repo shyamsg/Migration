@@ -95,9 +95,7 @@ int main(int argc, char **argv)
   //  cout << estParms.size() << endl;
   for (uint i=0; i<estParms.size(); i++) {
     cout << "Estimates for slice number " << i << endl;
-    for (uint j=0; j<estParms[i].size(); j++) {
-      cout << estParms[i][j] << " ";
-    }
+    copy(estParms[i].begin(), estParms[i].end(), ostream_iterator<double>(cout, " "));
     cout << endl;
   }
   gsl_matrix_free(conv);

@@ -35,10 +35,11 @@
 using namespace std;
 using namespace __gnu_cxx;
 
-#define EPS_GRAD  1e-12
-#define NRESTARTS 40
-#define FTOL      1e-12
-
+#define EPS_GRAD       1e-12
+#define NRESTARTS      40
+#define FTOL           1e-15
+#define MAXEVAL        500000
+#define LOW_COAL_RATE  1e-6
 
 typedef unsigned int uint;
 typedef struct {
