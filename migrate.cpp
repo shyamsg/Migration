@@ -667,6 +667,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	  cnt++;
 	}
       }
+      gsl_vector_free(temprates);
 
       // Set up minimizer
       /* Various possible algorithms,
@@ -694,7 +695,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	 NLOPT_LD_VAR2, NLOPT_LD_VAR1
 	 NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
        */
-      opt = nlopt_create(NLOPT_LD_SLSQP, nparams);
+      opt = nlopt_create(NLOPT_LN_SBPLX, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
       nlopt_set_min_objective(opt, compute_dist_and_grad, d);
@@ -703,7 +704,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 
 #ifdef LOCAL
       nlopt_opt opt_local;
-      opt_local = nlopt_create(NLOPT_LN_SBPLX, nparams);
+      opt_local = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
       nlopt_set_lower_bounds(opt_local, lb);
       nlopt_set_upper_bounds(opt_local, ub);
       nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
