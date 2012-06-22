@@ -19,7 +19,7 @@ void gsl_matrix_print(gsl_matrix * M)
 }
 
 /* matrix inversion routing using LU-factorization */
-int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (double)
+int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (const char *)
 {
   /* check matrix sizes */
   if(! A->size1 == A->size2 && Ai->size1 == Ai->size2 && A->size1 == Ai->size1)
@@ -34,8 +34,7 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (double)
   gsl_linalg_LU_decomp(AA, P, &s);
   double det = gsl_linalg_LU_det(AA, s);
   if (fabs(det) < 1e-35) {
-    cout << "Determinant is low: ";
-    throw det;
+    throw "Determinant is low.";
   }
   /* backsubstitute to get the inverse */
   gsl_linalg_LU_invert(AA, P, Ai);
@@ -660,10 +659,9 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       uint cnt = numdemes;
       for (uint ii=0; ii<numdemes; ii++) {
 	for (uint jj=ii+1; jj<numdemes; jj++) {
-	  lb[cnt] = (temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)\
-	    ? 0 : 1e-15;
+	  lb[cnt] = 1e-15; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
 	  ub[cnt] = (temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)\
-	    ? 0 : 1e-1;
+	    ? 1e-15 : 1e-1;
 	  cnt++;
 	}
       }
@@ -730,8 +728,10 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	int retcode = 0;
 	try {
 	  retcode = nlopt_optimize(opt, x, &minf);
-	} catch (double detValue) {
-	  cout << detValue << endl;
+	} catch (const char * detError) {
+#ifdef DEBUG
+	  cout << detError << endl;
+#endif
 	  rest++;
 	  reset = true;
 	}
@@ -752,8 +752,10 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	d->count = 0;
 	try {
 	  retcode = nlopt_optimize(opt_local, x, &minf);
-	} catch (double detValue) {
-	  cout << detValue << endl;
+	} catch (const char * detError) {
+#ifdef DEBUG
+	  cout << detError << endl;
+#endif
 	  rest++; 
 	  reset = true;
 	}
