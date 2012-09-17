@@ -88,7 +88,7 @@ int main(int argc, char **argv)
     }
   }
   conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
-  //  gsl_matrix_print(conv);
+  gsl_matrix_print(conv);
   //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
   vector<vector<vector<int> > > testlist;
   vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-3, true);
