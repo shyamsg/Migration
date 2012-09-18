@@ -693,7 +693,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	 NLOPT_LD_VAR2, NLOPT_LD_VAR1
 	 NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
        */
-      opt = nlopt_create(NLOPT_LD_LBFGS, nparams);
+      opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
       nlopt_set_lower_bounds(opt, lb);
       nlopt_set_upper_bounds(opt, ub);
       nlopt_set_min_objective(opt, compute_dist_and_grad, d);

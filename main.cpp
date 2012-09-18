@@ -1,5 +1,6 @@
 #include <iostream>
 #include "migrate.h"
+#include <time.h>
 
 void parseCmdLine(){};
 
@@ -87,6 +88,8 @@ int main(int argc, char **argv)
       popmap[id-1] = vector<vector<int> >(1); popmap[id-1][0].push_back(0), popmap[id-1][0].push_back(1);
     }
   }
+  time_t start, end;
+  time(&start);
   conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
   gsl_matrix_print(conv);
   //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
@@ -111,5 +114,8 @@ int main(int argc, char **argv)
   invert_matrix(conv, test);
   gsl_matrix_print(test);
   */
+  time(&end);
+  double diff = difftime(end, start);
+  printf("Time Elapsed: %.2lf\n", diff);
   return 0;
 }
