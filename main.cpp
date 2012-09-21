@@ -2,17 +2,48 @@
 #include "migrate.h"
 #include <time.h>
 #include <tclap/CmdLine.h>
+#include <fstream>
 
+#define MERGE_THRESHOLD 1e-2
 using namespace std;
 
 string ratefile;
 string timefile;
 string outfile;
+int npop;
 int skip;
 
-gsl_matrix * readRatesAndTimes(string rf, string tf)
+gsl_matrix * readRatesAndTimes(string rf, string tf, vector<double> & times)
 {
-  
+  gsl_matrix * rates = NULL;
+  ifstream timestream(tf.c_str());
+  float timeGen;
+  while(!timestream.eof()) {
+    timeGen = -1;
+    timestream >> timeGen;
+    if (timeGen != -1)
+      times.push_back(timeGen);
+  }
+  timestream.close();
+  ifstream ratestream(rf.c_str());
+  int comps = (npop*(npop+1))/2;
+  double rate;
+  rates = gsl_matrix_alloc(comps, times.size()-skip);
+  int rowindex = -1;
+  while(!ratestream.eof()) {
+    rowindex += 1;
+    for (int i = 0; i < (int)times.size(); i++) {
+      rate = -1.0;
+      ratestream >> rate;
+      if (rate == -1) break;
+      if ((i - skip) > -1) {
+	gsl_matrix_set(rates, rowindex, i-skip, rate);
+      }
+    }
+  }
+  times.erase(times.begin(), times.begin()+skip);
+  cout << times.size() << " " << skip << endl;
+  return rates;
 }
 
 void parseCmdLine(int argc, char **argv)
@@ -35,7 +66,9 @@ void parseCmdLine(int argc, char **argv)
     cmd.add(timeArg);
     TCLAP::ValueArg<std::string> outArg("o","out","Output file prefix", false, "test", "filename");
     cmd.add(outArg);
-    TCLAP::ValueArg<int> skipArg("s","skip","Initial time slices to skip", false, 0, "integer > 0");
+    TCLAP::ValueArg<int> popArg("p", "pop", "Number of populations", true, 2, "integer > 0 ");
+    cmd.add(popArg);
+    TCLAP::ValueArg<int> skipArg("s","skip","Initial time slices to skip", false, 0, "integer > 0 ");
     cmd.add(skipArg);
 
     // Parse the argv array.
@@ -45,6 +78,7 @@ void parseCmdLine(int argc, char **argv)
     timefile = timeArg.getValue();
     outfile = outArg.getValue();
     skip = skipArg.getValue();
+    npop = popArg.getValue();
   } catch (TCLAP::ArgException &e)  { // catch any exceptions 
     std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; 
   }
@@ -53,8 +87,11 @@ void parseCmdLine(int argc, char **argv)
 int main(int argc, char **argv)
 {  
   parseCmdLine(argc, argv);
-  gsl_matrix * conv;
-  uint id = (unsigned int)atoi(argv[7]);
+  vector<double> times;
+  gsl_matrix * conv = readRatesAndTimes(ratefile, timefile, times);
+  gsl_matrix_print(conv);
+  /*
+  uint id = (unsigned int)atoi("5");
   vector<vector<double> > Ns = vector<vector<double> >(id);
   vector<vector<double> > ms = vector<vector<double> >(id);
   vector<double> ts = vector<double>();
@@ -135,13 +172,14 @@ int main(int argc, char **argv)
       popmap[id-1] = vector<vector<int> >(1); popmap[id-1][0].push_back(0), popmap[id-1][0].push_back(1);
     }
   }
+  */
   time_t start, end;
   time(&start);
-  conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
-  gsl_matrix_print(conv);
+  //  conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
+  //  gsl_matrix_print(conv);
   //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
   vector<vector<vector<int> > > testlist;
-  vector<vector<double> > estParms = comp_params(conv, ts, testlist, 1e-3, true);
+  vector<vector<double> > estParms = comp_params(conv, times, testlist, MERGE_THRESHOLD, true);
   //  cout << estParms.size() << endl;
   for (uint i=0; i<estParms.size(); i++) {
     cout << "Estimates for slice number " << i << endl;

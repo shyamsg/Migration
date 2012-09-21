@@ -538,6 +538,8 @@ double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv)
   //  cout << d->popdict->size() << endl;
   gsl_vector * avobsrates = average_coal_rates(d->obs_coal_rates, *(d->popdict));
   gsl_vector * avestrates = average_coal_rates(estRates, *(d->popdict));
+  //  for (int i =0; i < avobsrates.size(); i++) { 
+  //  }
   //  cout << "t2" << endl;
   gsl_vector_sub(avobsrates, avestrates);
   gsl_vector_free(avestrates);
@@ -793,10 +795,15 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	bestfun = 1e200;
 	pdlist.push_back(popdict);
 	numdemes = popdict.size();
+	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
+        copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
+	cout << endl;
 #ifdef DEBUG
 	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
         copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
 	cout << endl;
+	int test;
+	cin >> test;
 #endif
       } else {
 	vector<double> currxopt;
@@ -810,7 +817,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	    currxopt.push_back(*(bestxopt+testind));
 	  }
 	}
-	    
 	reestimate=false;
 	xopts.push_back(currxopt);
       }
