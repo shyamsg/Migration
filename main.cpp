@@ -1,13 +1,60 @@
 #include <iostream>
 #include "migrate.h"
 #include <time.h>
+#include <tclap/CmdLine.h>
 
-void parseCmdLine(){};
+using namespace std;
+
+string ratefile;
+string timefile;
+string outfile;
+int skip;
+
+gsl_matrix * readRatesAndTimes(string rf, string tf)
+{
+  
+}
+
+void parseCmdLine(int argc, char **argv)
+{
+  try {  
+    TCLAP::CmdLine cmd("Migrate rate estimator", ' ', "0.1");
+    // Various arguments that this module takes are
+    // rate file.
+    // time file
+    // output file.
+    // skip number of initial slices
+    // pattern -- add later
+
+    // Define a value argument and add it to the command line.
+    // A value arg defines a flag and a type of value that it expects,
+    // such as "-n Bishop".
+    TCLAP::ValueArg<std::string> rateArg("r","rate","Coalescent rates file", true, "rates.txt", "filename");
+    cmd.add(rateArg);
+    TCLAP::ValueArg<std::string> timeArg("t","time","Time slice file", true, "times.txt", "filename");
+    cmd.add(timeArg);
+    TCLAP::ValueArg<std::string> outArg("o","out","Output file prefix", false, "test", "filename");
+    cmd.add(outArg);
+    TCLAP::ValueArg<int> skipArg("s","skip","Initial time slices to skip", false, 0, "integer > 0");
+    cmd.add(skipArg);
+
+    // Parse the argv array.
+    cmd.parse( argc, argv );
+    // Get the value parsed by each arg. 
+    ratefile = rateArg.getValue();
+    timefile = timeArg.getValue();
+    outfile = outArg.getValue();
+    skip = skipArg.getValue();
+  } catch (TCLAP::ArgException &e)  { // catch any exceptions 
+    std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; 
+  }
+}
 
 int main(int argc, char **argv)
 {  
+  parseCmdLine(argc, argv);
   gsl_matrix * conv;
-  uint id = (unsigned int)atoi(argv[1]);
+  uint id = (unsigned int)atoi(argv[7]);
   vector<vector<double> > Ns = vector<vector<double> >(id);
   vector<vector<double> > ms = vector<vector<double> >(id);
   vector<double> ts = vector<double>();

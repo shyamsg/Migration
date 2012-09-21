@@ -19,6 +19,7 @@ ifeq ($(findstring spud, ${HOSTNAME}), spud)
 	INCLUDES += -I/home/shyamg/local/include
 	LFLAGS += -L/home/shyamg/local/lib
 endif
+
 # define library paths in addition to /usr/lib
 # if I wanted to include libraries not in /usr/lib I'd specify
 # their path using -Lpath, something like:
