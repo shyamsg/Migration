@@ -12,11 +12,18 @@ string timefile;
 string outfile;
 int npop;
 int skip;
+bool logVal;
 
-gsl_matrix * readRatesAndTimes(string rf, string tf, vector<double> & times)
+/***********************************************************
+This function reads the rates and times files and constructs
+a matrix and vector out of these respectively. It also handles
+the skip argument and omits the first 'skip' timeslices and
+rates.
+************************************************************/
+gsl_matrix * readRatesAndTimes(vector<double> & times)
 {
   gsl_matrix * rates = NULL;
-  ifstream timestream(tf.c_str());
+  ifstream timestream(timefile.c_str());
   float timeGen;
   while(!timestream.eof()) {
     timeGen = -1;
@@ -25,7 +32,7 @@ gsl_matrix * readRatesAndTimes(string rf, string tf, vector<double> & times)
       times.push_back(timeGen);
   }
   timestream.close();
-  ifstream ratestream(rf.c_str());
+  ifstream ratestream(ratefile.c_str());
   int comps = (npop*(npop+1))/2;
   double rate;
   rates = gsl_matrix_alloc(comps, times.size()-skip);
@@ -46,6 +53,39 @@ gsl_matrix * readRatesAndTimes(string rf, string tf, vector<double> & times)
   return rates;
 }
 
+/***********************************************************
+This function is used to write the output from the migration
+estimation algorithm. It writes out 4 things, the slice number,
+the time in gens, the current version of the population merger
+state and the estimates for the remaining populations.
+
+************************************************************/
+void writeOutput(vector<double> & times, vector<vector<vector<int> > > & pdout, \
+		 vector<vector<double> > & estParms)
+{
+  ofstream out(outfile.c_str());
+  cout << "Writing output " << times.size() << "\t" << pdout.size() << endl;
+  if (times.size() != pdout.size()) {
+    cout << "Times and population merger list have different lengths." << endl;
+    exit(1);
+  }
+  for (uint i=0; i < times.size(); i++) {
+    out << i << "\t" << times[i] << "\t|";
+    for (uint j=0; j < pdout[i].size(); j++) {
+      copy(pdout[i][j].begin(), pdout[i][j].end(), ostream_iterator<int>(out, ","));
+      out << "|";
+    }
+    out << "\t";
+    copy(estParms[i].begin(), estParms[i].end(), ostream_iterator<double>(out, ","));
+    out << "\n";
+  }
+  out.close();
+}
+
+/***********************************************************
+This is a command line parser function. It parses cla using
+the TCLAP classes. 
+***********************************************************/
 void parseCmdLine(int argc, char **argv)
 {
   try {  
@@ -68,8 +108,10 @@ void parseCmdLine(int argc, char **argv)
     cmd.add(outArg);
     TCLAP::ValueArg<int> popArg("p", "pop", "Number of populations", true, 2, "integer > 0 ");
     cmd.add(popArg);
-    TCLAP::ValueArg<int> skipArg("s","skip","Initial time slices to skip", false, 0, "integer > 0 ");
+    TCLAP::ValueArg<int> skipArg("s", "skip", "Initial time slices to skip", false, 0, "integer > 0 ");
     cmd.add(skipArg);
+    TCLAP::SwitchArg logArg("l", "logCost", "Log the cost function", false);
+    cmd.add(logArg);
 
     // Parse the argv array.
     cmd.parse( argc, argv );
@@ -79,16 +121,17 @@ void parseCmdLine(int argc, char **argv)
     outfile = outArg.getValue();
     skip = skipArg.getValue();
     npop = popArg.getValue();
+    logVal = logArg.getValue();
   } catch (TCLAP::ArgException &e)  { // catch any exceptions 
     std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; 
   }
 }
 
 int main(int argc, char **argv)
-{  
+{
   parseCmdLine(argc, argv);
   vector<double> times;
-  gsl_matrix * conv = readRatesAndTimes(ratefile, timefile, times);
+  gsl_matrix * conv = readRatesAndTimes(times);
   gsl_matrix_print(conv);
   /*
   uint id = (unsigned int)atoi("5");
@@ -178,8 +221,8 @@ int main(int argc, char **argv)
   //  conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
   //  gsl_matrix_print(conv);
   //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
-  vector<vector<vector<int> > > testlist;
-  vector<vector<double> > estParms = comp_params(conv, times, testlist, MERGE_THRESHOLD, true);
+  vector<vector<vector<int> > > pdout;
+  vector<vector<double> > estParms = comp_params(conv, times, pdout, logVal, MERGE_THRESHOLD, true);
   //  cout << estParms.size() << endl;
   for (uint i=0; i<estParms.size(); i++) {
     cout << "Estimates for slice number " << i << endl;
@@ -187,6 +230,7 @@ int main(int argc, char **argv)
     cout << endl;
   }
   gsl_matrix_free(conv);
+  writeOutput(times, pdout, estParms);
   /*
   conv = gsl_matrix_alloc(2,2);
   conv->data[0] = 1.3;

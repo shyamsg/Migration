@@ -2,6 +2,7 @@
 
 #define DIM_MISMATCH 127
 #define MAXPOPS 50
+#define EPS 1e-20
 
 using namespace std;
 using namespace __gnu_cxx;
@@ -538,6 +539,15 @@ double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv)
   //  cout << d->popdict->size() << endl;
   gsl_vector * avobsrates = average_coal_rates(d->obs_coal_rates, *(d->popdict));
   gsl_vector * avestrates = average_coal_rates(estRates, *(d->popdict));
+  if (d->logVal) {
+    if (avobsrates->size != avestrates->size) {
+      throw "Size of these vectors is not equal.";
+    }
+    for (size_t ll=0; ll < avobsrates->size; ll++) {
+      avobsrates->data[ll] = -log10(avobsrates->data[ll] + EPS);
+      avestrates->data[ll] = -log10(avestrates->data[ll] + EPS);
+    }
+  }
   //  for (int i =0; i < avobsrates.size(); i++) { 
   //  }
   //  cout << "t2" << endl;
@@ -613,13 +623,14 @@ past.
 ***********************************************************/
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
                                      vector<vector<vector<int > > > &pdlist, \
-                                     double merge_threshold, bool useMigration)
+				     bool logVal, double merge_threshold, \
+				     bool useMigration)
 {
   /* SETUP FOR UNIFORM RANDOM GENERATION */
   const gsl_rng_type * T; 
   gsl_rng * r; 
-  gsl_rng_env_setup(); 
-  T = gsl_rng_default; 
+  gsl_rng_env_setup();
+  T = gsl_rng_default;
   r = gsl_rng_alloc (T);
   gsl_rng_set(r, time(NULL));
   /* END RANDGEN SETUP */
@@ -650,6 +661,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       tempPopdict.clear();
       tempPopdict.insert(tempPopdict.end(), pdmerged.begin(), pdmerged.end());
       d->obs_coal_rates = gsl_matrix_column(obs_rates, ns);
+      d->logVal = logVal;
 
       double lb[nparams];
       double ub[nparams];
@@ -795,13 +807,14 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	bestfun = 1e200;
 	pdlist.push_back(popdict);
 	numdemes = popdict.size();
-	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
-        copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
-	cout << endl;
 #ifdef DEBUG
 	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
         copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
 	cout << endl;
+	for (uint ll=0; ll < popdict.size(); ll++) {
+	  copy(popdict[ll].begin(), popdict[ll].end(), ostream_iterator<int>(cout, " "));
+	  cout << " -- " << endl;
+	}
 	int test;
 	cin >> test;
 #endif

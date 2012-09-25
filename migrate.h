@@ -48,6 +48,7 @@ typedef struct {
   gsl_matrix * P0;
   vector<vector<int> > * popdict;
   uint count;
+  bool logVal;
 } cfnm_data;
 
 void gsl_matrix_print(gsl_matrix * M);
@@ -72,6 +73,7 @@ double compute_dist_and_grad(uint n, const double * x, double * grad, void * dat
 double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv);
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
 				     vector<vector<vector<int > > > &pdlist, \
-				     double merge_threshold, bool useMigration=false);
+				     bool logVal, double merge_threshold, \
+				     bool useMigration=false);
 #endif
 
