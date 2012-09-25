@@ -2,10 +2,143 @@
 
 #define DIM_MISMATCH 127
 #define MAXPOPS 50
-#define EPS 1e-20
+#define EPS 1
+#define MINDET 1e-35
 
 using namespace std;
 using namespace __gnu_cxx;
+
+/***********************************************************
+This function encapsulates a loop of the optimization run. 
+Any changes in the style or mechanism of the optmizer would
+be done via this function. Note that there is no control 
+over the cost function in this function. 
+ ***********************************************************/
+inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,	\
+			   unsigned int & nparams, double *lb, double *ub, \
+			   unsigned int nloops, double * bestxopt,	\
+			   double & bestfun )
+{
+  double minf;
+  /* SETUP FOR UNIFORM RANDOM GENERATION */
+  const gsl_rng_type * T; 
+  gsl_rng * r; 
+  gsl_rng_env_setup();
+  T = gsl_rng_default;
+  r = gsl_rng_alloc (T);
+  gsl_rng_set(r, time(NULL));
+  /* END RANDGEN SETUP */
+  // Set up minimizer
+  /* Various possible algorithms,
+     NLOPT_GN_DIRECT
+     NLOPT_GN_DIRECT_L
+     NLOPT_GLOBAL_DIRECT_L_RAND
+     NLOPT_GLOBAL_DIRECT_NOSCAL, NLOPT_GLOBAL_DIRECT_L_NOSCAL
+     NLOPT_GN_ORIG_DIRECT, NLOPT_GN_ORIG_DIRECT_L
+     NLOPT_GN_CRS2_LM
+     NLOPT_G_MLSL_LDS, NLOPT_G_MLSL
+     NLOPT_GD_STOGO, or NLOPT_GD_STOGO_RAND
+     NLOPT_GN_ISRES
+     NLOPT_LN_COBYLA
+     NLOPT_LN_BOBYQA
+     NLOPT_LN_NEWUOA
+     NLOPT_LN_NEWUOA_BOUND
+     NLOPT_LN_PRAXIS
+     NLOPT_LN_NELDERMEAD
+     NLOPT_LN_SBPLX
+     NLOPT_LD_MMA
+     NLOPT_LD_SLSQP
+     NLOPT_LD_LBFGS
+     NLOPT_LD_TNEWTON_PRECOND_RESTART, NLOPT_LD_TNEWTON_PRECOND
+     NLOPT_LD_TNEWTON_RESTART, NLOPT_LD_TNEWTON
+     NLOPT_LD_VAR2, NLOPT_LD_VAR1
+     NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
+  */
+  nlopt_opt opt;
+  opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
+  nlopt_set_lower_bounds(opt, lb);
+  nlopt_set_upper_bounds(opt, ub);
+  nlopt_set_min_objective(opt, compute_dist_and_grad, d);
+  //      nlopt_set_maxeval(opt, MAXEVAL);
+  nlopt_set_stopval(opt, -HUGE_VAL);
+  nlopt_set_ftol_abs(opt, 1e-20);
+
+#ifdef LOCAL
+  nlopt_opt opt_local;
+  opt_local = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
+  nlopt_set_lower_bounds(opt_local, lb);
+  nlopt_set_upper_bounds(opt_local, ub);
+  nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
+  //      nlopt_set_maxeval(opt_local, MAXEVAL/10);
+  nlopt_set_stopval(opt, -HUGE_VAL);
+  nlopt_set_ftol_abs(opt_local, 1e-20);
+#endif
+
+  double * x = (double *) malloc(sizeof(double)*nparams);
+
+  for (uint rest=nloops; rest>0; rest--) {
+    bool reset = false;
+    d->count = 0;
+    //random starting point
+    if (bestfun < FTOL) break;
+    for (uint kind=0; kind<numdemes; kind++) {
+      x[kind] = gsl_ran_flat(r, 1e-5, 1e-3);
+    }
+    for (uint kind=numdemes; kind<nparams; kind++) {
+      x[kind] = gsl_ran_flat(r, 1e-8, 1e-3);
+    }
+    int retcode = 0;
+    try {
+      retcode = nlopt_optimize(opt, x, &minf);
+    } catch (const char * detError) {
+#ifdef DEBUG
+      cout << detError << endl;
+#endif
+      rest++;
+      reset = true;
+    }
+    if (reset) continue;
+    if (retcode < 0) {
+      printf("nlopt first step failed - %d!\n", retcode);
+    }
+    else {
+#ifdef DEBUG
+      printf("Completed first step optimization in %d fevals with func=%6.2g.\n", d->count, minf);
+#endif
+      if (minf < bestfun) {
+	bestfun = minf;
+	memcpy(bestxopt, x, sizeof(double)*nparams);
+      }
+    }
+#ifdef LOCAL
+    d->count = 0;
+    try {
+      retcode = nlopt_optimize(opt_local, x, &minf);
+    } catch (const char * detError) {
+#ifdef DEBUG
+      cout << detError << endl;
+#endif
+      rest++; 
+      reset = true;
+    }
+    if (reset) continue;
+    if (retcode < 0) {
+      printf("nlopt second step failed - %d!\n", retcode);
+    } else if (minf < bestfun) {
+      bestfun = minf;
+      memcpy(bestxopt, x, sizeof(double)*nparams);
+    }
+#ifdef DEBUG
+    printf("Completed second step optimization with %d fevals with func=%6.2g.\n", d->count, minf);
+#endif
+#endif
+  }
+  free(x);
+  nlopt_destroy(opt);
+#ifdef LOCAL
+  nlopt_destroy(opt_local);
+#endif
+}
 
 /* General Method to print matrices*/
 void gsl_matrix_print(gsl_matrix * M)
@@ -34,7 +167,7 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (const char *)
   /* perform LU-factorization */
   gsl_linalg_LU_decomp(AA, P, &s);
   double det = gsl_linalg_LU_det(AA, s);
-  if (fabs(det) < 1e-35) {
+  if (fabs(det) < MINDET) {
     throw "Determinant is low.";
   }
   /* backsubstitute to get the inverse */
@@ -501,7 +634,7 @@ vector<vector<int> > make_merged_pd(vector<vector<vector<int> > > & pdlist)
     vector<vector<int> > pdprev = vector<vector<int> >(pdlist[i-1]);
     vector<vector<int> > pdtemp;
     for (vvit=pdnew.begin(); vvit<pdnew.end();vvit++) {
-      vector<int> temp;  
+      vector<int> temp;
       for (vit=vvit->begin(); vit<vvit->end(); vit++) {
         temp.insert(temp.end(), pdprev[*vit].begin(), pdprev[*vit].end());
       }
@@ -544,8 +677,8 @@ double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv)
       throw "Size of these vectors is not equal.";
     }
     for (size_t ll=0; ll < avobsrates->size; ll++) {
-      avobsrates->data[ll] = -log10(avobsrates->data[ll] + EPS);
-      avestrates->data[ll] = -log10(avestrates->data[ll] + EPS);
+      avobsrates->data[ll] = log10(avobsrates->data[ll] + EPS);
+      avestrates->data[ll] = log10(avestrates->data[ll] + EPS);
     }
   }
   //  for (int i =0; i < avobsrates.size(); i++) { 
@@ -635,7 +768,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_rng_set(r, time(NULL));
   /* END RANDGEN SETUP */
 
-  double minf;
   uint numslices = t.size();
   uint nr = obs_rates->size1 + 1;
   uint numdemes = int((sqrt(8*nr - 7))/2);
@@ -647,7 +779,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
   gsl_matrix_set_identity(d->P0);
   vector<vector<double> > xopts;
   pdlist.clear();
-  nlopt_opt opt;
   for (uint ns=0; ns<numslices; ns++) {
     cout << endl << "starting slice number " << ns << endl;
     gsl_vector * Ninv;
@@ -674,122 +805,23 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       for (uint ii=0; ii<numdemes; ii++) {
 	for (uint jj=ii+1; jj<numdemes; jj++) {
 	  lb[cnt] = 1e-15; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
-	  ub[cnt] = (temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)\
-	    ? 1e-15 : 1e-1;
+	  ub[cnt] = 1e-1; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)  ? 1e-15 : 1e-1;
 	  cnt++;
 	}
       }
       gsl_vector_free(temprates);
-
-      // Set up minimizer
-      /* Various possible algorithms,
-	 NLOPT_GN_DIRECT
-	 NLOPT_GN_DIRECT_L
-	 NLOPT_GLOBAL_DIRECT_L_RAND
-	 NLOPT_GLOBAL_DIRECT_NOSCAL, NLOPT_GLOBAL_DIRECT_L_NOSCAL
-	 NLOPT_GN_ORIG_DIRECT, NLOPT_GN_ORIG_DIRECT_L
-	 NLOPT_GN_CRS2_LM
-	 NLOPT_G_MLSL_LDS, NLOPT_G_MLSL
-	 NLOPT_GD_STOGO, or NLOPT_GD_STOGO_RAND
-	 NLOPT_GN_ISRES
-	 NLOPT_LN_COBYLA
-	 NLOPT_LN_BOBYQA
-	 NLOPT_LN_NEWUOA
-	 NLOPT_LN_NEWUOA_BOUND
-	 NLOPT_LN_PRAXIS
-	 NLOPT_LN_NELDERMEAD
-	 NLOPT_LN_SBPLX
-	 NLOPT_LD_MMA
-	 NLOPT_LD_SLSQP
-	 NLOPT_LD_LBFGS
-	 NLOPT_LD_TNEWTON_PRECOND_RESTART, NLOPT_LD_TNEWTON_PRECOND
-	 NLOPT_LD_TNEWTON_RESTART, NLOPT_LD_TNEWTON
-	 NLOPT_LD_VAR2, NLOPT_LD_VAR1
-	 NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
-       */
-      opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
-      nlopt_set_lower_bounds(opt, lb);
-      nlopt_set_upper_bounds(opt, ub);
-      nlopt_set_min_objective(opt, compute_dist_and_grad, d);
-      //      nlopt_set_maxeval(opt, MAXEVAL);
-      nlopt_set_ftol_abs(opt, 1e-15);
-
-#ifdef LOCAL
-      nlopt_opt opt_local;
-      opt_local = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
-      nlopt_set_lower_bounds(opt_local, lb);
-      nlopt_set_upper_bounds(opt_local, ub);
-      nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
-      //      nlopt_set_maxeval(opt_local, MAXEVAL/10);
-      nlopt_set_ftol_abs(opt_local, 1e-15);
-#endif
-
-      double * x = (double *) malloc(sizeof(double)*nparams);
-      double bestfun = 1e200;
       double * bestxopt = (double *) malloc(sizeof(double)*nparams);
-
-      for (uint rest=NRESTARTS; rest>0; rest--) {
-        bool reset = false;
-	d->count = 0;
-	//random starting point
-	if (bestfun < FTOL) break;
-	for (uint kind=0; kind<numdemes; kind++) {
-	  x[kind] = gsl_ran_flat(r, 1e-5, 1e-3);
-	}
-	for (uint kind=numdemes; kind<nparams; kind++) {
-	  x[kind] = gsl_ran_flat(r, 1e-8, 1e-3);
-	}
-	int retcode = 0;
-	try {
-	  retcode = nlopt_optimize(opt, x, &minf);
-	} catch (const char * detError) {
-#ifdef DEBUG
-	  cout << detError << endl;
-#endif
-	  rest++;
-	  reset = true;
-	}
-	if (reset) continue;
-	if (retcode < 0) {
-	  printf("nlopt first step failed - %d!\n", retcode);
-	}
-	else {
-#ifdef DEBUG
-	  printf("Completed first step optimization in %d fevals.\n", d->count);
-#endif
-	  if (minf < bestfun) {
-	    bestfun = minf;
-	    memcpy(bestxopt, x, sizeof(double)*nparams);
-	  }
-	}
-#ifdef LOCAL
-	d->count = 0;
-	try {
-	  retcode = nlopt_optimize(opt_local, x, &minf);
-	} catch (const char * detError) {
-#ifdef DEBUG
-	  cout << detError << endl;
-#endif
-	  rest++; 
-	  reset = true;
-	}
-	if (reset) continue;
-	if (retcode < 0) {
-	  printf("nlopt second step failed - %d!\n", retcode);
-	} else if (minf < bestfun) {
-	  bestfun = minf;
-	  memcpy(bestxopt, x, sizeof(double)*nparams);
-	}
-#ifdef DEBUG
-	printf("Completed second step optimization with %d fevals.\n", d->count);
-#endif
-#endif
+      // NFIRST Iterations to get close to some optimum. If this is not a good
+      // opt then no need to do the second set.
+      double bestfun = 1e200;
+      runOptimizer(d, numdemes, nparams, lb, ub, NFIRST, bestxopt, bestfun);
+      // After NFIRST iters, check the minf if it's not very good,
+      // do not do the rest of iters and check for merges.
+      // If it's ok then continue on with the minimization 
+      // to find the best parameters.
+      if (bestfun < COARSEFVAL) { 
+	runOptimizer(d, numdemes, nparams, lb, ub, NSECOND, bestxopt, bestfun);
       }
-      free(x);
-      nlopt_destroy(opt);
-#ifdef LOCAL
-      nlopt_destroy(opt_local);
-#endif
       //check for population mergers
       Ninv = gsl_vector_alloc(numdemes);
       memcpy(Ninv->data, bestxopt, sizeof(double)*numdemes);
@@ -804,7 +836,6 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	gsl_matrix_memcpy(d->P0, temp);
 	gsl_matrix_free(temp);
 	reestimate = true;
-	bestfun = 1e200;
 	pdlist.push_back(popdict);
 	numdemes = popdict.size();
 #ifdef DEBUG
@@ -815,9 +846,11 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
 	  copy(popdict[ll].begin(), popdict[ll].end(), ostream_iterator<int>(cout, " "));
 	  cout << " -- " << endl;
 	}
+	cout << "Function estimate @reestimation" << bestfun << endl;
 	int test;
 	cin >> test;
 #endif
+	bestfun = 1e200;
       } else {
 	vector<double> currxopt;
 	for (uint kind=0; kind<numdemes; kind++) {

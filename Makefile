@@ -75,6 +75,9 @@ debuglocal: $(MAIN)
 local: CFLAGS += -DLOCAL
 local: $(MAIN)
 
+test: CFLAGS += -DDEBUG -DTEST
+test: $(MAIN)
+
 clean:
 	rm -f *.o *~ $(MAIN)
 

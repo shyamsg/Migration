@@ -9,7 +9,7 @@ using namespace std;
 
 string ratefile;
 string timefile;
-string outfile;
+string outfile = "testme";
 int npop;
 int skip;
 bool logVal;
@@ -63,22 +63,26 @@ state and the estimates for the remaining populations.
 void writeOutput(vector<double> & times, vector<vector<vector<int> > > & pdout, \
 		 vector<vector<double> > & estParms)
 {
-  ofstream out(outfile.c_str());
+  string outEsts = outfile + ".ests";
+  string outPd = outfile +".pd";
+  ofstream out(outEsts.c_str());
+  ofstream pdo(outPd.c_str());
+#ifdef DEBUG
   cout << "Writing output " << times.size() << "\t" << pdout.size() << endl;
-  if (times.size() != pdout.size()) {
-    cout << "Times and population merger list have different lengths." << endl;
-    exit(1);
-  }
+#endif
   for (uint i=0; i < times.size(); i++) {
-    out << i << "\t" << times[i] << "\t|";
-    for (uint j=0; j < pdout[i].size(); j++) {
-      copy(pdout[i][j].begin(), pdout[i][j].end(), ostream_iterator<int>(out, ","));
-      out << "|";
-    }
-    out << "\t";
+    out << i << "\t" << times[i] << "\t";
     copy(estParms[i].begin(), estParms[i].end(), ostream_iterator<double>(out, ","));
     out << "\n";
   }
+  for (uint i=0; i < pdout.size(); i++) {
+    for (uint j=0; j < pdout[i].size(); j++) {
+      copy(pdout[i][j].begin(), pdout[i][j].end(), ostream_iterator<int>(pdo, ","));
+      pdo << "|";
+    }
+    pdo << "\n";
+  }
+  pdo.close();
   out.close();
 }
 
@@ -129,12 +133,16 @@ void parseCmdLine(int argc, char **argv)
 
 int main(int argc, char **argv)
 {
-  parseCmdLine(argc, argv);
   vector<double> times;
-  gsl_matrix * conv = readRatesAndTimes(times);
+  gsl_matrix * conv;
+#ifndef TEST
+  parseCmdLine(argc, argv);
+  conv = readRatesAndTimes(times);
   gsl_matrix_print(conv);
-  /*
-  uint id = (unsigned int)atoi("5");
+#else
+  /*************DEBUG_CODE***************/
+  uint id = (unsigned int)atoi(argv[1]);
+  logVal = (argc > 2) ? true: false;
   vector<vector<double> > Ns = vector<vector<double> >(id);
   vector<vector<double> > ms = vector<vector<double> >(id);
   vector<double> ts = vector<double>();
@@ -215,12 +223,14 @@ int main(int argc, char **argv)
       popmap[id-1] = vector<vector<int> >(1); popmap[id-1][0].push_back(0), popmap[id-1][0].push_back(1);
     }
   }
-  */
+  conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
+  gsl_matrix_print(conv);
+  times = ts;
+  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
+  /*************DEBUG_CODE***************/
+#endif
   time_t start, end;
   time(&start);
-  //  conv = compute_pw_coal_rates(Ns, ms, ts, popmap);
-  //  gsl_matrix_print(conv);
-  //  cout << "The computed rates have dimension " << conv->size1 << "x" << conv->size2 << endl;
   vector<vector<vector<int> > > pdout;
   vector<vector<double> > estParms = comp_params(conv, times, pdout, logVal, MERGE_THRESHOLD, true);
   //  cout << estParms.size() << endl;
