@@ -756,8 +756,8 @@ past.
 ***********************************************************/
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
                                      vector<vector<vector<int > > > &pdlist, \
-				     bool logVal, double merge_threshold, \
-				     bool useMigration)
+				     bool logVal, int numPopInt, double \
+				     merge_threshold, bool useMigration)
 {
   /* SETUP FOR UNIFORM RANDOM GENERATION */
   const gsl_rng_type * T; 

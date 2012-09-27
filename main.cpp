@@ -13,6 +13,7 @@ string outfile = "testme";
 int npop;
 int skip;
 bool logVal;
+int poi;
 
 /***********************************************************
 This function reads the rates and times files and constructs
@@ -104,18 +105,20 @@ void parseCmdLine(int argc, char **argv)
     // Define a value argument and add it to the command line.
     // A value arg defines a flag and a type of value that it expects,
     // such as "-n Bishop".
+    TCLAP::ValueArg<int> skipArg("s", "skip", "Initial time slices to skip", false, 0, " integer > 0 ");
+    cmd.add(skipArg);
+    TCLAP::ValueArg<int> npArg("n", "npoi", "Number of pops to solve at once", false, 0, " integer >= 2 ");
+    cmd.add(npArg);
+    TCLAP::SwitchArg logArg("l", "logCost", "Log the cost function", false);
+    cmd.add(logArg);
+    TCLAP::ValueArg<int> popArg("p", "pop", "Number of populations", true, 2, "integer > 0 ");
+    cmd.add(popArg);
     TCLAP::ValueArg<std::string> rateArg("r","rate","Coalescent rates file", true, "rates.txt", "filename");
     cmd.add(rateArg);
     TCLAP::ValueArg<std::string> timeArg("t","time","Time slice file", true, "times.txt", "filename");
     cmd.add(timeArg);
     TCLAP::ValueArg<std::string> outArg("o","out","Output file prefix", false, "test", "filename");
     cmd.add(outArg);
-    TCLAP::ValueArg<int> popArg("p", "pop", "Number of populations", true, 2, "integer > 0 ");
-    cmd.add(popArg);
-    TCLAP::ValueArg<int> skipArg("s", "skip", "Initial time slices to skip", false, 0, "integer > 0 ");
-    cmd.add(skipArg);
-    TCLAP::SwitchArg logArg("l", "logCost", "Log the cost function", false);
-    cmd.add(logArg);
 
     // Parse the argv array.
     cmd.parse( argc, argv );
@@ -126,6 +129,7 @@ void parseCmdLine(int argc, char **argv)
     skip = skipArg.getValue();
     npop = popArg.getValue();
     logVal = logArg.getValue();
+    poi = npArg.getValue();
   } catch (TCLAP::ArgException &e)  { // catch any exceptions 
     std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; 
   }
@@ -232,7 +236,7 @@ int main(int argc, char **argv)
   time_t start, end;
   time(&start);
   vector<vector<vector<int> > > pdout;
-  vector<vector<double> > estParms = comp_params(conv, times, pdout, logVal, MERGE_THRESHOLD, true);
+  vector<vector<double> > estParms = comp_params(conv, times, pdout, logVal, poi, MERGE_THRESHOLD, true);
   //  cout << estParms.size() << endl;
   for (uint i=0; i<estParms.size(); i++) {
     cout << "Estimates for slice number " << i << endl;
