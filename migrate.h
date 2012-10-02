@@ -29,6 +29,7 @@
 
 #include "ext/hash_map"
 #include "vector"
+#include "set"
 #include "iterator"
 #include "algorithm"
 
@@ -37,7 +38,7 @@ using namespace __gnu_cxx;
 
 #define EPS_GRAD       1e-12
 #define NFIRST         10
-#define NSECOND        30
+#define NSECOND        35
 #define COARSEFVAL     1e-10
 #define FTOL           1e-20
 #define MAXEVAL        500000
@@ -52,8 +53,8 @@ typedef struct {
   uint count;
   bool logVal;
   vector<double> otherParms;
-  vector<unsigned int> indexOthers;
-  vector<unsigned int> indexOpt;
+  set<unsigned int> indexOthers;
+  set<unsigned int> indexOpt;
 } cfnm_data;
 
 void gsl_matrix_print(gsl_matrix * M);

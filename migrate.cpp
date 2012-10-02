@@ -14,10 +14,10 @@ Any changes in the style or mechanism of the optmizer would
 be done via this function. Note that there is no control 
 over the cost function in this function. 
  ***********************************************************/
-inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,	\
-			   unsigned int & nparams, double *lb, double *ub, \
-			   unsigned int nloops, double * bestxopt,	\
-			   double & bestfun )
+inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
+               unsigned int & nparams, double *lb, double *ub, \
+               unsigned int nloops, double * bestxopt,    \
+               double & bestfun)
 {
   double minf;
   /* SETUP FOR UNIFORM RANDOM GENERATION */
@@ -106,8 +106,8 @@ inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,	\
       printf("Completed first step optimization in %d fevals with func=%6.2g.\n", d->count, minf);
 #endif
       if (minf < bestfun) {
-	bestfun = minf;
-	memcpy(bestxopt, x, sizeof(double)*nparams);
+    bestfun = minf;
+    memcpy(bestxopt, x, sizeof(double)*nparams);
       }
     }
 #ifdef LOCAL
@@ -160,10 +160,10 @@ int invert_matrix(const gsl_matrix *A, gsl_matrix *Ai) throw (const char *)
     return (-1);
   /* create a permutation matrix for the LU-factorization */
   gsl_permutation * P = gsl_permutation_alloc(A->size1);
-  int s; 			/* a dummy variable */
+  int s;             /* a dummy variable */
   /* allocate a buffer matrix */
   gsl_matrix *AA = gsl_matrix_alloc(A->size1, A->size2);
-  gsl_matrix_memcpy(AA, A);	/* copy A to AA */
+  gsl_matrix_memcpy(AA, A);    /* copy A to AA */
   /* perform LU-factorization */
   gsl_linalg_LU_decomp(AA, P, &s);
   double det = gsl_linalg_LU_det(AA, s);
@@ -206,64 +206,64 @@ gsl_matrix * comp_pw_coal_cont(gsl_matrix * m, gsl_vector * Ne_inv)
   for (unsigned int p1=0; p1<numdemes; p1++) {
     for (unsigned int p2=p1; p2<numdemes; p2++) {
       if (p1 == p2) {
-	gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1,p2), nr-1, 0.5*gsl_vector_get(Ne_inv, p1));
+    gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1,p2), nr-1, 0.5*gsl_vector_get(Ne_inv, p1));
       }
       for (unsigned int p3=0; p3<numdemes; p3++) {
-	for (unsigned int p4=p3; p4<numdemes; p4++) {
-	  if (p1 == p3 && p2 == p4) {
-	    continue;
-	  }
-	  if (p1 == p2) { //both lines in same deme
-	    if (p3 == p4) {
-	      continue; // needs 2 migrations
-	    } else if (p3 == p1) {
-	      gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			     gsl_matrix_int_get(demePairs, p3, p4),		\
-			     2*gsl_matrix_get(m, p2, p4));
-	    } else if (p4 == p2) {
-	      gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			     gsl_matrix_int_get(demePairs, p3, p4),		\
-			     2*gsl_matrix_get(m, p1, p3));
-	    }
-	  } else { // two lines in 2 demes
-	    if (p3 == p1 || p3 == p2) {
-	      if (p1 == p3){
-		gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			       gsl_matrix_int_get(demePairs, p3, p4),	\
-			       gsl_matrix_get(m ,p2, p4));
-	      } else {
-		gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			       gsl_matrix_int_get(demePairs, p3, p4),	\
-			       gsl_matrix_get(m ,p1, p4));
-	      }
-	    } else if (p4 == p2 || p4 == p1) {
-	      if (p1 == p4){
-		gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			       gsl_matrix_int_get(demePairs, p3, p4),	\
-			       gsl_matrix_get(m ,p2, p3));
-	      } else {
-		gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),	\
-			       gsl_matrix_int_get(demePairs, p3, p4),	\
-			       gsl_matrix_get(m ,p1, p3));
-	      }
-	    }
-	  }
-	}
+    for (unsigned int p4=p3; p4<numdemes; p4++) {
+      if (p1 == p3 && p2 == p4) {
+        continue;
+      }
+      if (p1 == p2) { //both lines in same deme
+        if (p3 == p4) {
+          continue; // needs 2 migrations
+        } else if (p3 == p1) {
+          gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                 gsl_matrix_int_get(demePairs, p3, p4),        \
+                 2*gsl_matrix_get(m, p2, p4));
+        } else if (p4 == p2) {
+          gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                 gsl_matrix_int_get(demePairs, p3, p4),        \
+                 2*gsl_matrix_get(m, p1, p3));
+        }
+      } else { // two lines in 2 demes
+        if (p3 == p1 || p3 == p2) {
+          if (p1 == p3){
+        gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                   gsl_matrix_int_get(demePairs, p3, p4),    \
+                   gsl_matrix_get(m ,p2, p4));
+          } else {
+        gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                   gsl_matrix_int_get(demePairs, p3, p4),    \
+                   gsl_matrix_get(m ,p1, p4));
+          }
+        } else if (p4 == p2 || p4 == p1) {
+          if (p1 == p4){
+        gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                   gsl_matrix_int_get(demePairs, p3, p4),    \
+                   gsl_matrix_get(m ,p2, p3));
+          } else {
+        gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),    \
+                   gsl_matrix_int_get(demePairs, p3, p4),    \
+                   gsl_matrix_get(m ,p1, p3));
+          }
+        }
+      }
+    }
       }
     }
   }    
   for (unsigned int p1=0; p1<numdemes; p1++) {
     for (unsigned int p2=p1; p2<numdemes; p2++) {
       double temp = -gsl_matrix_get(Q, gsl_matrix_int_get(demePairs, p1, p2), \
-				    nr-1);
+                    nr-1);
       for (unsigned int p3=0; p3<numdemes; p3++) {
-	for (unsigned int p4=p3; p4<numdemes; p4++) {
-	  temp -= gsl_matrix_get(Q, gsl_matrix_int_get(demePairs, p1, p2), \
-				 gsl_matrix_int_get(demePairs, p3, p4));
-	}
+    for (unsigned int p4=p3; p4<numdemes; p4++) {
+      temp -= gsl_matrix_get(Q, gsl_matrix_int_get(demePairs, p1, p2), \
+                 gsl_matrix_int_get(demePairs, p3, p4));
+    }
       }
-      gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),		\
-		     gsl_matrix_int_get(demePairs, p1, p2), temp);
+      gsl_matrix_set(Q, gsl_matrix_int_get(demePairs, p1, p2),        \
+             gsl_matrix_int_get(demePairs, p1, p2), temp);
     }
   }
   gsl_matrix_int_free(demePairs);
@@ -344,11 +344,11 @@ vector<vector <int> > pop_to_col(vector<vector<int> > &popD, int nd_old)
     for (uint j=i; j<nd; j++) { 
       vector<int> cols;
       for (unsigned int k=0; k<popD[i].size(); k++){
-	for (unsigned int l=0; l<popD[j].size(); l++) {
-	  if (popD[i][k] > popD[j][l]) continue;
-	  int tt = ((popD[i][k]*(2*nd_old-popD[i][k]+1))/2 + popD[j][l] - popD[i][k]);
-	  cols.push_back(tt);
-	}
+    for (unsigned int l=0; l<popD[j].size(); l++) {
+      if (popD[i][k] > popD[j][l]) continue;
+      int tt = ((popD[i][k]*(2*nd_old-popD[i][k]+1))/2 + popD[j][l] - popD[i][k]);
+      cols.push_back(tt);
+    }
       }
       ptc.push_back(cols);
     }
@@ -375,9 +375,9 @@ gsl_matrix * converge_pops(vector<vector<int> > & popDict, gsl_matrix * scramb)
   for (uint col=0; col<nc-1; col++) {
     for (uint row=0; row<nr; row++) {
       for (uint scol=0; scol<ptc[col].size(); scol++) {
-	gsl_matrix_set(temp, row, col, (gsl_matrix_get(temp, row, col) + \
-					gsl_matrix_get(scramb, row, ptc[col][scol])) \
-		       );
+    gsl_matrix_set(temp, row, col, (gsl_matrix_get(temp, row, col) + \
+                    gsl_matrix_get(scramb, row, ptc[col][scol])) \
+               );
       }
     }
   }
@@ -432,14 +432,14 @@ gsl_matrix * compute_pw_coal_rates(vector<vector<double> > & Nes, \
       P0 = converge_pops(popmaps[i], P0);
     } else if (popmaps[i].size() > 0) {
       cout << "PopMaps say: " << popmaps[i].size() << \
-	" populations whereas population sizes say: " << numpops << \
-	"populations. Too much uncertainty. Does not compute :)." << endl;
+    " populations whereas population sizes say: " << numpops << \
+    "populations. Too much uncertainty. Does not compute :)." << endl;
       throw "Population map and population size parameters do not match";
     }
     for (uint ii=0; ii<numpops; ii++) {
       for (uint jj=ii+1; jj<numpops; jj++) {
-	m->data[ii*m->size2+jj] = m->data[jj*m->size2+ii] = mtemp[cnt];
-	cnt += 1;
+    m->data[ii*m->size2+jj] = m->data[jj*m->size2+ii] = mtemp[cnt];
+    cnt += 1;
       }
     }
     gsl_matrix * Q = comp_pw_coal_cont(m, Ne_inv);
@@ -457,7 +457,7 @@ gsl_matrix * compute_pw_coal_rates(vector<vector<double> > & Nes, \
     for (uint row=0; row<exp_rates->size1; row++) {
       exp_rates->data[row*exp_rates->size2+i] = P->data[row*P->size2+P->size2-1];
       if (exp_rates->data[row*exp_rates->size2+i] < 0) {
-	exp_rates->data[row*exp_rates->size2+i] = 0.0;
+        exp_rates->data[row*exp_rates->size2+i] = 0.0;
       }
     }
     gsl_matrix * temp = conv_scrambling_matrix(eQ);
@@ -489,12 +489,12 @@ vector<vector<int> > construct_poparr(vector<vector<int> > popdict)
     } else if (popToIndex.find(ii) == popToIndex.end()) {
       popToIndex[ii] = currIndex;
       for (uint jj=0; jj<popdict[ii].size(); jj++) {
-	  popToIndex[popdict[ii][jj]] = popToIndex[ii];
+      popToIndex[popdict[ii][jj]] = popToIndex[ii];
       }
       currIndex += 1;
     } else if (popToIndex.find(ii) != popToIndex.end()) {
       for (uint jj=0; jj<popdict[ii].size(); jj++) {
-	popToIndex[popdict[ii][jj]] = popToIndex[ii];
+        popToIndex[popdict[ii][jj]] = popToIndex[ii];
       }
     }
   }
@@ -502,10 +502,10 @@ vector<vector<int> > construct_poparr(vector<vector<int> > popdict)
   vector<vector<int> > popmap;
   for (uint ii=0; ii<currIndex; ii++) {
     vector<int> temp;
-    for (hash_map<int, int>::iterator hit=popToIndex.begin();	\
-	 hit!=popToIndex.end(); hit++) {
+    for (hash_map<int, int>::iterator hit=popToIndex.begin();    \
+     hit!=popToIndex.end(); hit++) {
       if (hit->second == int(ii)) {
-	temp.push_back(hit->first);
+    temp.push_back(hit->first);
       }
     }
     popmap.push_back(temp);
@@ -530,8 +530,8 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
     uint cnt = 0;
     for (uint ii=0; ii<numdemes; ii++) {
       for (uint jj=ii+1; jj<numdemes; jj++) {
-	m->data[ii*m->size2+jj] = m->data[jj*m->size2+ii] = mtemp[cnt];
-	cnt += 1;
+        m->data[ii*m->size2+jj] = m->data[jj*m->size2+ii] = mtemp[cnt];
+        cnt += 1;
       }
     }
     gsl_matrix * Q = comp_pw_coal_cont(m, Ninv);
@@ -544,20 +544,20 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
     gsl_vector_view P = gsl_vector_subvector(&Prow.vector, 0, eQ->size1-1);
     for (uint i=0; i<numdemes; i++) {
       for (uint j=i+1; j<numdemes; j++) {
-	gsl_vector * dists = gsl_vector_alloc(3);;
-	dists->data[0] = P.vector.data[((2*numdemes-i+1)*i)/2];
-	dists->data[1] = P.vector.data[((2*numdemes-i+1)*i)/2+(j-i)];
-	dists->data[2] = P.vector.data[((2*numdemes-j+1)*j)/2];
-	double meanRates = gsl_stats_mean(dists->data, 1, dists->size);
-	//	medianRates = np.median(dists);
+    gsl_vector * dists = gsl_vector_alloc(3);;
+    dists->data[0] = P.vector.data[((2*numdemes-i+1)*i)/2];
+    dists->data[1] = P.vector.data[((2*numdemes-i+1)*i)/2+(j-i)];
+    dists->data[2] = P.vector.data[((2*numdemes-j+1)*j)/2];
+    double meanRates = gsl_stats_mean(dists->data, 1, dists->size);
+    //    medianRates = np.median(dists);
         double rangeRates = gsl_vector_max(dists) - gsl_vector_min(dists);
-	//      print i,j, medianRates, meanRates
-	if (rangeRates/meanRates < merge_threshold) {
-	  //	  print 'Hello:', i, j, np.real(dists);
-	  popdict[i].push_back(j);
-	  popdict[j].push_back(i);
-	}
-	gsl_vector_free(dists);
+    //      print i,j, medianRates, meanRates
+    if (rangeRates/meanRates < merge_threshold) {
+      //      print 'Hello:', i, j, np.real(dists);
+      popdict[i].push_back(j);
+      popdict[j].push_back(i);
+    }
+    gsl_vector_free(dists);
       }
     }
     gsl_matrix_free(eQ);
@@ -568,11 +568,11 @@ vector<vector<int> > find_pop_merges(gsl_vector * Ninv, vector<double> mtemp,\
     uint cnt = 0;
     for (uint ii=0; ii<numdemes; ii++) {
       for (uint jj=ii+1; jj<numdemes; jj++) {
-	if (mtemp[cnt] > merge_threshold) {
-	  popdict[ii].push_back(jj);
-	  popdict[jj].push_back(ii);
-	}
-	cnt += 1;
+    if (mtemp[cnt] > merge_threshold) {
+      popdict[ii].push_back(jj);
+      popdict[jj].push_back(ii);
+    }
+    cnt += 1;
       }
     }
   }
@@ -661,7 +661,7 @@ double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv)
   gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, d->P0, Pcurr, 0.0, temp);
   gsl_matrix_free(Pcurr);
   //  gsl_vector_view estRates = gsl_matrix_subcolumn(temp, temp->size2-1, 0, 
-  //						  temp->size1-1);
+  //                          temp->size1-1);
   gsl_vector_view estRow = gsl_matrix_column(temp, temp->size2-1);
   gsl_vector_view estRates = gsl_vector_subvector(&estRow.vector, 0, temp->size1-1);
   gsl_matrix_free(temp);
@@ -706,20 +706,26 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
 #ifdef DEBUG
   if(d->count%100000 == 0) cout << "Done with " << d->count << " evals." << endl;
 #endif
-  uint k = int((sqrt(1+8*n) - 1)/2.0);
+  uint np = d->indexOthers.size() + d->indexOpt.size();
+  uint k = int((sqrt(1+8*np) - 1)/2.0);
   gsl_vector * Ne_inv = gsl_vector_alloc(k);
-  for (uint i=0; i<k; i++) {
+  gsl_matrix * m = gsl_matrix_calloc(k,k);
+  for (size_t i = 0; i < d->indexOpt.size(); i++) {
+    if (d->indexOpt[i] < k)
+      Ns[i] = x[]
+  }
+/*  for (uint i=0; i<k; i++) {
     Ne_inv->data[i] = x[i];
   }
-  gsl_matrix * m = gsl_matrix_calloc(k,k);
-  uint cnt = 0;
+*/
   // make the m matrix from ms
-  for (uint i=0; i<k; i++) {
+/*  for (uint i=0; i<k; i++) {
     for (uint j=i+1; j<k; j++) {
       m->data[i*k+j] = m->data[j*k+i] = x[k+cnt];
       cnt += 1;
     }
   }
+*/
   double fnorm = compute_2norm_mig(d, m, Ne_inv);
   //#    grad = grad_Frob_cdiff(x, t, obs_coal_rates, P0, popdict, epsilon=1e-5)
   //#    print grad
@@ -733,11 +739,11 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
     cnt = 0;
     for (uint p1=0; p1<k; p1++) {
       for (uint p2=p1+1; p2<k; p2++) {
-	m->data[p1*k+p2] += EPS_GRAD; 
-	m->data[p2*k+p1] += EPS_GRAD;
-	grad[k+cnt] = (fnorm - compute_2norm_mig(d, m, Ne_inv))/EPS_GRAD;
-	m->data[p1*k+p2] -= EPS_GRAD;
-	m->data[p2*k+p1] -= EPS_GRAD;
+    m->data[p1*k+p2] += EPS_GRAD; 
+    m->data[p2*k+p1] += EPS_GRAD;
+    grad[k+cnt] = (fnorm - compute_2norm_mig(d, m, Ne_inv))/EPS_GRAD;
+    m->data[p1*k+p2] -= EPS_GRAD;
+    m->data[p2*k+p1] -= EPS_GRAD;
       }
     }
   }
@@ -756,8 +762,8 @@ past.
 ***********************************************************/
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
                                      vector<vector<vector<int > > > &pdlist, \
-				     bool logVal, int numPopInt, double \
-				     merge_threshold, bool useMigration)
+                                     bool logVal, unsigned int numPopInt, double \
+                                     merge_threshold, bool useMigration)
 {
   /* SETUP FOR UNIFORM RANDOM GENERATION */
   const gsl_rng_type * T; 
@@ -797,17 +803,17 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       double lb[nparams];
       double ub[nparams];
       for (uint np=0; np<numdemes; np++) {
-	lb[np] = 1e-15;
-	ub[np] = 1e-1;
+    lb[np] = 1e-15;
+    ub[np] = 1e-1;
       }
       gsl_vector * temprates = average_coal_rates(d->obs_coal_rates, pdmerged);
       uint cnt = numdemes;
       for (uint ii=0; ii<numdemes; ii++) {
-	for (uint jj=ii+1; jj<numdemes; jj++) {
-	  lb[cnt] = 1e-15; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
-	  ub[cnt] = 1e-1; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)  ? 1e-15 : 1e-1;
-	  cnt++;
-	}
+        for (uint jj=ii+1; jj<numdemes; jj++) {
+          lb[cnt] = 1e-15; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
+          ub[cnt] = 1e-1; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)  ? 1e-15 : 1e-1;
+          cnt++;
+        }
       }
       gsl_vector_free(temprates);
       double * bestxopt = (double *) malloc(sizeof(double)*nparams);
@@ -820,7 +826,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       // If it's ok then continue on with the minimization 
       // to find the best parameters.
       if (bestfun < COARSEFVAL) { 
-	runOptimizer(d, numdemes, nparams, lb, ub, NSECOND, bestxopt, bestfun);
+        runOptimizer(d, numdemes, nparams, lb, ub, NSECOND, bestxopt, bestfun);
       }
       //check for population mergers
       Ninv = gsl_vector_alloc(numdemes);
@@ -828,50 +834,50 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       mtemp.clear();
       mtemp.insert(mtemp.end(), bestxopt+numdemes, bestxopt+nparams);
       vector<vector<int > > popdict = find_pop_merges(Ninv, mtemp, d->t, d->P0, \
-						      merge_threshold, useMigration);
+                              merge_threshold, useMigration);
       if (popdict.size() < numdemes) {
-	gsl_matrix * temp = converge_pops(popdict, d->P0);
-	gsl_matrix_free(d->P0);
-	d->P0 = gsl_matrix_alloc(temp->size1, temp->size2);
-	gsl_matrix_memcpy(d->P0, temp);
-	gsl_matrix_free(temp);
-	reestimate = true;
-	pdlist.push_back(popdict);
-	numdemes = popdict.size();
+    gsl_matrix * temp = converge_pops(popdict, d->P0);
+    gsl_matrix_free(d->P0);
+    d->P0 = gsl_matrix_alloc(temp->size1, temp->size2);
+    gsl_matrix_memcpy(d->P0, temp);
+    gsl_matrix_free(temp);
+    reestimate = true;
+    pdlist.push_back(popdict);
+    numdemes = popdict.size();
 #ifdef DEBUG
-	cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
+    cout << "\tre-estimating due to population merging.\nCurrent estimate: ";
         copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
-	cout << endl;
-	for (uint ll=0; ll < popdict.size(); ll++) {
-	  copy(popdict[ll].begin(), popdict[ll].end(), ostream_iterator<int>(cout, " "));
-	  cout << " -- " << endl;
-	}
-	cout << "Function estimate @reestimation" << bestfun << endl;
-	int test;
-	cin >> test;
+    cout << endl;
+    for (uint ll=0; ll < popdict.size(); ll++) {
+      copy(popdict[ll].begin(), popdict[ll].end(), ostream_iterator<int>(cout, " "));
+      cout << " -- " << endl;
+    }
+    cout << "Function estimate @reestimation" << bestfun << endl;
+    int test;
+    cin >> test;
 #endif
-	bestfun = 1e200;
+    bestfun = 1e200;
       } else {
-	vector<double> currxopt;
-	for (uint kind=0; kind<numdemes; kind++) {
-	  currxopt.push_back(1./bestxopt[kind]);
-	}
-	for (uint testind=numdemes; testind < nparams; testind++) {
-	  if (*(bestxopt+testind) < 1e-10) {
-	    currxopt.push_back(0.0);
-	  } else {
-	    currxopt.push_back(*(bestxopt+testind));
-	  }
-	}
-	reestimate=false;
-	xopts.push_back(currxopt);
+    vector<double> currxopt;
+    for (uint kind=0; kind<numdemes; kind++) {
+      currxopt.push_back(1./bestxopt[kind]);
+    }
+    for (uint testind=numdemes; testind < nparams; testind++) {
+      if (*(bestxopt+testind) < 1e-10) {
+        currxopt.push_back(0.0);
+      } else {
+        currxopt.push_back(*(bestxopt+testind));
+      }
+    }
+    reestimate=false;
+    xopts.push_back(currxopt);
       }
 #ifdef DEBUG
       cout << "Best function estimate " << bestfun << endl;
       if (bestfun < 1) {
-	cout << "Nparams: " << nparams << "\t";
+    cout << "Nparams: " << nparams << "\t";
         copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " "));
-	cout << endl;       
+    cout << endl;       
       }
 #endif
       free(bestxopt);
@@ -880,8 +886,8 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
     uint cnt=0;
     for (uint row=0; row<numdemes; row++) {
       for (uint col=row+1; col<numdemes; col++) {
-	m->data[row*numdemes+col] = m->data[col*numdemes+row] = mtemp[cnt];
-	cnt++;
+    m->data[row*numdemes+col] = m->data[col*numdemes+row] = mtemp[cnt];
+    cnt++;
       }
     }
     gsl_matrix *Q = comp_pw_coal_cont(m, Ninv);
