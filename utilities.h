@@ -25,15 +25,17 @@ double * (vector<double> parms, cfmn_data *d, unsigned int npops, \
   int cnt = -1;
   chosen = (double *) malloc(sizeof(double)*(popsOfInt.size()*(popsOfInt.size()+1))/2);
   for (unsigned int t = 0; t < popsOfInt.size(); t++) {
-    for (unsigned int u = t; u < popsOfInt.size(); u++) {
-      d->indexOpt.insert((popsOfInt[t]*(2*npops-popsOfInt[t]-1))/2 + popsOfInt[u]);
-      chosen[++cnt] = parms[(popsOfInt[t]*(2*npops-popsOfInt[t]-1))/2 + popsOfInt[u]];
+    d->indexOpt.insert(popsOfInt[t]);
+    for (unsigned int u = t+1; u < popsOfInt.size(); u++) {
+      d->indexOpt.insert((popsOfInt[t]*(2*npops-popsOfInt[t]-3))/2 + popsOfInt[u]-1+npops);
     }
   }
   for (unsigned int t = 0; t < (npops*(npops+1))/2; t++) {
     if (d->indexOpt.find(t) == d->indexOpt.end()) {
       d->indexOthers.insert(t);
       d->otherParms.push_back(parms[t]);
+    } else {
+      chosen[++cnt] = parms[t];
     }
   }
   return chosen;
@@ -69,18 +71,19 @@ bool next_comb(vector<int> comb, int k, int n) {
     return true;
 }
 
+/*
 int main(int argc, char *argv[]) {
-    int n = 10; /* The size of the set; for {1, 2, 3, 4} it's 4 */
-    int k = 2; /* The size of the subsets; for {1, 2}, {1, 3}, ... it's 2 */
-    vector<int> comb = vector<int>(k); /* comb[i] is the index of the i-th element in the
-            combination */
+    int n = 10; / * The size of the set; for {1, 2, 3, 4} it's 4 * /
+    int k = 2; / * The size of the subsets; for {1, 2}, {1, 3}, ... it's 2 * /
+    vector<int> comb = vector<int>(k); / * comb[i] is the index of the i-th element in the
+            combination * /
 
-    /* Setup comb for the initial combination */
+    / * Setup comb for the initial combination * /
     int i;
     for (i = 0; i < k; ++i)
         comb[i] = i;
 
     return 0;
 }
-
+*/
 #endif

@@ -12,24 +12,8 @@ using namespace __gnu_cxx;
 This function encapsulates a loop of the optimization run. 
 Any changes in the style or mechanism of the optmizer would
 be done via this function. Note that there is no control 
-over the cost function in this function. 
- ***********************************************************/
-inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
-               unsigned int & nparams, double *lb, double *ub, \
-               unsigned int nloops, double * bestxopt,    \
-               double & bestfun)
-{
-  double minf;
-  /* SETUP FOR UNIFORM RANDOM GENERATION */
-  const gsl_rng_type * T; 
-  gsl_rng * r; 
-  gsl_rng_env_setup();
-  T = gsl_rng_default;
-  r = gsl_rng_alloc (T);
-  gsl_rng_set(r, time(NULL));
-  /* END RANDGEN SETUP */
-  // Set up minimizer
-  /* Various possible algorithms,
+over the cost function in this function.  
+Various possible algorithms,
      NLOPT_GN_DIRECT
      NLOPT_GN_DIRECT_L
      NLOPT_GLOBAL_DIRECT_L_RAND
@@ -53,7 +37,22 @@ inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
      NLOPT_LD_TNEWTON_RESTART, NLOPT_LD_TNEWTON
      NLOPT_LD_VAR2, NLOPT_LD_VAR1
      NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
-  */
+ ***********************************************************/
+inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
+			 unsigned int & nparams, double *lb, double *ub, \
+			 unsigned int nloops, double * bestxopt,	\
+			 double & bestfun, int npopsInt)
+{
+  double minf;
+  /* SETUP FOR UNIFORM RANDOM GENERATION */
+  const gsl_rng_type * T; 
+  gsl_rng * r; 
+  gsl_rng_env_setup();
+  T = gsl_rng_default;
+  r = gsl_rng_alloc (T);
+  gsl_rng_set(r, time(NULL));
+  /* END RANDGEN SETUP */
+  // Set up minimizer
   nlopt_opt opt;
   opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
   nlopt_set_lower_bounds(opt, lb);
@@ -73,8 +72,8 @@ inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
   nlopt_set_stopval(opt, -HUGE_VAL);
   nlopt_set_ftol_abs(opt_local, 1e-20);
 #endif
-
-  double * x = (double *) malloc(sizeof(double)*nparams);
+  
+  double * x = (double *) malloc(sizeof(double)*nparamsInt);
 
   for (uint rest=nloops; rest>0; rest--) {
     bool reset = false;
@@ -704,28 +703,39 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
   cfnm_data * d = (cfnm_data *) data;
   d->count++;
 #ifdef DEBUG
-  if(d->count%100000 == 0) cout << "Done with " << d->count << " evals." << endl;
+  if(d->count%200000 == 0) cout << "Done with " << d->count << " evals." << endl;
 #endif
   uint np = d->indexOthers.size() + d->indexOpt.size();
   uint k = int((sqrt(1+8*np) - 1)/2.0);
   gsl_vector * Ne_inv = gsl_vector_alloc(k);
   gsl_matrix * m = gsl_matrix_calloc(k,k);
-  for (size_t i = 0; i < d->indexOpt.size(); i++) {
+  vector<double> tempMig = vector<double> ((k*(k-1))/2);
+  // Have to make the N and mig things.
+  // from the x and d->otherParms
+  for (uint i=0; i < d->indexOpt.size(); i++) {
     if (d->indexOpt[i] < k)
-      Ns[i] = x[]
+      Ne_inv->data[d->indexOpt[i]] = x[i];
+    else
+      tempMig[d->indexOpt[i] - k] = x[i];
+  }
+  for (uint i=0; i < d->indexOthers.size(); i++) {
+    if (d->indexOthers[i] < k)
+      Ne_inv->data[d->indexOthers[i]] = d->otherParms[i];
+    else
+      tempMig[d->indexOthers[i] - k] = d->otherParms[i];
   }
 /*  for (uint i=0; i<k; i++) {
     Ne_inv->data[i] = x[i];
   }
 */
   // make the m matrix from ms
-/*  for (uint i=0; i<k; i++) {
+  int cnt = -1;
+  for (uint i=0; i<k; i++) {
     for (uint j=i+1; j<k; j++) {
-      m->data[i*k+j] = m->data[j*k+i] = x[k+cnt];
-      cnt += 1;
+      m->data[i*k+j] = m->data[j*k+i] = tempMig[++cnt];
     }
   }
-*/
+
   double fnorm = compute_2norm_mig(d, m, Ne_inv);
   //#    grad = grad_Frob_cdiff(x, t, obs_coal_rates, P0, popdict, epsilon=1e-5)
   //#    print grad
@@ -820,6 +830,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       // NFIRST Iterations to get close to some optimum. If this is not a good
       // opt then no need to do the second set.
       double bestfun = 1e200;
+      // runOptimizer runs through 1 whole combination of pops
       runOptimizer(d, numdemes, nparams, lb, ub, NFIRST, bestxopt, bestfun);
       // After NFIRST iters, check the minf if it's not very good,
       // do not do the rest of iters and check for merges.
