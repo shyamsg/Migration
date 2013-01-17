@@ -30,7 +30,7 @@ endif
 LIBS = -lgsl -lgslcblas -lnlopt -lm
 
 # define the CPP source files
-SRCS = migrate.cpp main.cpp
+SRCS = utilities.cpp migrate.cpp main.cpp
 
 # define the C object files
 #
@@ -75,7 +75,7 @@ debuglocal: $(MAIN)
 local: CFLAGS += -DLOCAL
 local: $(MAIN)
 
-test: CFLAGS += -DDEBUG -DTEST
+test: CFLAGS += -g -DDEBUG -DTEST
 test: $(MAIN)
 
 clean:

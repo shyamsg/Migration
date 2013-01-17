@@ -13,7 +13,7 @@ string outfile = "testme";
 int npop;
 int skip;
 bool logVal;
-int poi;
+unsigned int poi;
 
 /***********************************************************
 This function reads the rates and times files and constructs
@@ -107,7 +107,7 @@ void parseCmdLine(int argc, char **argv)
     // such as "-n Bishop".
     TCLAP::ValueArg<int> skipArg("s", "skip", "Initial time slices to skip", false, 0, " integer > 0 ");
     cmd.add(skipArg);
-    TCLAP::ValueArg<int> npArg("n", "npoi", "Number of pops to solve at once", false, 0, " integer >= 2 ");
+    TCLAP::ValueArg<unsigned int> npArg("n", "npoi", "Number of pops to solve at once", false, 0, " integer >= 2 ");
     cmd.add(npArg);
     TCLAP::SwitchArg logArg("l", "logCost", "Log the cost function", false);
     cmd.add(logArg);
@@ -130,6 +130,7 @@ void parseCmdLine(int argc, char **argv)
     npop = popArg.getValue();
     logVal = logArg.getValue();
     poi = npArg.getValue();
+    if (poi == 0) poi = npop;
   } catch (TCLAP::ArgException &e)  { // catch any exceptions 
     std::cerr << "error: " << e.error() << " for arg " << e.argId() << std::endl; 
   }
@@ -147,6 +148,7 @@ int main(int argc, char **argv)
   /*************DEBUG_CODE***************/
   uint id = (unsigned int)atoi(argv[1]);
   logVal = (argc > 2) ? true: false;
+  poi= 2;
   vector<vector<double> > Ns = vector<vector<double> >(id);
   vector<vector<double> > ms = vector<vector<double> >(id);
   vector<double> ts = vector<double>();

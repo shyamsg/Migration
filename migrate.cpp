@@ -1,12 +1,17 @@
 #include "migrate.h"
+#include "utilities.h"
 
 #define DIM_MISMATCH 127
 #define MAXPOPS 50
 #define EPS 1
 #define MINDET 1e-35
+#define MIN_EPS 1e-14
+#define MAXLOOP 25
 
 using namespace std;
 using namespace __gnu_cxx;
+
+typedef set<unsigned int>::iterator siter;
 
 /***********************************************************
 This function encapsulates a loop of the optimization run. 
@@ -37,13 +42,14 @@ Various possible algorithms,
      NLOPT_LD_TNEWTON_RESTART, NLOPT_LD_TNEWTON
      NLOPT_LD_VAR2, NLOPT_LD_VAR1
      NLOPT_AUGLAG, NLOPT_AUGLAG_EQ
+This function will only run one block based on what it gets
+and what is set in the d structure.
  ***********************************************************/
 inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
 			 unsigned int & nparams, double *lb, double *ub, \
 			 unsigned int nloops, double * bestxopt,	\
-			 double & bestfun, int npopsInt)
+			 double & bestfun, unsigned int numPopsInt)
 {
-  double minf;
   /* SETUP FOR UNIFORM RANDOM GENERATION */
   const gsl_rng_type * T; 
   gsl_rng * r; 
@@ -52,91 +58,168 @@ inline void runOptimizer(cfnm_data *d, unsigned int &numdemes,    \
   r = gsl_rng_alloc (T);
   gsl_rng_set(r, time(NULL));
   /* END RANDGEN SETUP */
+#ifdef DEBUG
+  cout << "Entering runOptimizer" << endl;
+#endif
+  if (numPopsInt > numdemes)
+    numPopsInt = numdemes;
+  size_t nparamsInt = (numPopsInt*(numPopsInt+1))/2;
+  
+
   // Set up minimizer
   nlopt_opt opt;
-  opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
-  nlopt_set_lower_bounds(opt, lb);
-  nlopt_set_upper_bounds(opt, ub);
+  opt = nlopt_create(NLOPT_LN_NELDERMEAD, nparamsInt);
+  //  nlopt_set_lower_bounds(opt, lb);
+  //  nlopt_set_upper_bounds(opt, ub);
   nlopt_set_min_objective(opt, compute_dist_and_grad, d);
-  //      nlopt_set_maxeval(opt, MAXEVAL);
+  nlopt_set_maxeval(opt, MAXEVAL);
   nlopt_set_stopval(opt, -HUGE_VAL);
   nlopt_set_ftol_abs(opt, 1e-20);
 
 #ifdef LOCAL
   nlopt_opt opt_local;
-  opt_local = nlopt_create(NLOPT_LN_NELDERMEAD, nparams);
-  nlopt_set_lower_bounds(opt_local, lb);
-  nlopt_set_upper_bounds(opt_local, ub);
+  opt_local = nlopt_create(NLOPT_LN_NELDERMEAD, nparamsInt);
+  //  nlopt_set_lower_bounds(opt_local, lb);
+  //  nlopt_set_upper_bounds(opt_local, ub);
   nlopt_set_min_objective(opt_local, compute_dist_and_grad, d);
   //      nlopt_set_maxeval(opt_local, MAXEVAL/10);
   nlopt_set_stopval(opt, -HUGE_VAL);
   nlopt_set_ftol_abs(opt_local, 1e-20);
 #endif
-  
-  double * x = (double *) malloc(sizeof(double)*nparamsInt);
+  //#ifdef DEBUG
+  //  cout << "numPopsInt " << numPopsInt << endl;
+  //  cout << "nparamsInt " << nparamsInt << endl;
+  //  cout << "numdemes " << numdemes << endl;
+  //#endif
+  int * comb = (int *)malloc(sizeof(int)*numPopsInt);
+  double *lbCurr = (double *)malloc(sizeof(double)*nparamsInt);
+  double *ubCurr = (double *)malloc(sizeof(double)*nparamsInt);
+  double * x = (double *)malloc(sizeof(double)*nparamsInt); //optimizer options
+  double *allParams = (double *)malloc(sizeof(double)*nparams); // all parms
 
+  // This loop is multiple whole minimization - going over
+  // all combos multiple times till you get the opt
+  // i.e. the function does not change much nloop times
+  // all from a diff random starting point
   for (uint rest=nloops; rest>0; rest--) {
-    bool reset = false;
-    d->count = 0;
+#ifdef TEST
+    cout <<  rest << " ";
+#endif
+
+    double curFun = 1e200;
+    double oldFun = 0;
+    double epsdiff = 1e10;
+
     //random starting point
     if (bestfun < FTOL) break;
+    // random initialization of all parms
     for (uint kind=0; kind<numdemes; kind++) {
-      x[kind] = gsl_ran_flat(r, 1e-5, 1e-3);
+      allParams[kind] = gsl_ran_flat(r, 1e-5, 1e-3);
     }
     for (uint kind=numdemes; kind<nparams; kind++) {
+      allParams[kind] = 1e-12;//gsl_ran_flat(r, 1e-8, 1e-3);
+    }
+    for (uint kind=0; kind<numPopsInt; kind++) {
+      x[kind] =  gsl_ran_flat(r, 1e-5, 1e-3);
+    }
+    for (uint kind=numPopsInt; kind<nparamsInt; kind++) {
       x[kind] = gsl_ran_flat(r, 1e-8, 1e-3);
     }
-    int retcode = 0;
-    try {
-      retcode = nlopt_optimize(opt, x, &minf);
-    } catch (const char * detError) {
+
+    // Runs one whole minimization loop
+    // meaning that all combos are processed
+    // multiple times till no change in 
+    // cost function
+    int loops = 0;
+    do {
+      loops++;
+      // gen first combination.
+      comb[0] = 99;
+      while(next_comb(comb, numPopsInt, numdemes)) { // minimize over current combo
+	//	int testing;
+	//	cin >> testing;
+	genCombo(allParams, d, numdemes, comb, x, numPopsInt);
+	int cntl = 0;
+	for (siter il = d->indexOpt->begin(); il != d->indexOpt->end(); il++, cntl++) {
+	  lbCurr[cntl] = lb[*il];
+	  ubCurr[cntl] = ub[*il];
+	}
+	//#ifdef DEBUG
+	//	copy(lbCurr, lbCurr+nparamsInt, ostream_iterator<double>(cout, " ")); cout << endl;
+	//	copy(ubCurr, ubCurr+nparamsInt, ostream_iterator<double>(cout, " ")); cout << endl;
+	//#endif
+	nlopt_set_lower_bounds(opt, lbCurr);
+	nlopt_set_upper_bounds(opt, ubCurr);
+
+	int retcode = 0;
+	d->count = 0;
+	try {
+	  retcode = nlopt_optimize(opt, x, &curFun);
+	} catch (const char * detError) {
 #ifdef DEBUG
-      cout << detError << endl;
+	  cout << detError << endl;
 #endif
-      rest++;
-      reset = true;
-    }
-    if (reset) continue;
-    if (retcode < 0) {
-      printf("nlopt first step failed - %d!\n", retcode);
-    }
-    else {
-#ifdef DEBUG
-      printf("Completed first step optimization in %d fevals with func=%6.2g.\n", d->count, minf);
-#endif
-      if (minf < bestfun) {
-    bestfun = minf;
-    memcpy(bestxopt, x, sizeof(double)*nparams);
-      }
-    }
+	}
+	if (retcode < 0) { // this step did not work, so do not update parms
+	  printf("nlopt first step failed - %d!\n", retcode);
+	} else {
+	  // update parms for the particular set of populations
+	  int cnt = -1;
+	  for (siter ii = d->indexOpt->begin(); ii != d->indexOpt->end(); ii++)
+	    allParams[*ii] = x[++cnt];
+	  //#ifdef DEBUG
+	  //	  printf("Completed first step optimization in %d fevals with func=%6.2g.\n", d->count, curFun);
+	  //	  copy(x, x+d->indexOpt->size(), ostream_iterator<double>(cout, " ")); cout << endl;
+	  //	  copy(allParams, allParams+nparams, ostream_iterator<double>(cout, " ")); cout << endl;
+	  //#endif
+	}
 #ifdef LOCAL
-    d->count = 0;
-    try {
-      retcode = nlopt_optimize(opt_local, x, &minf);
-    } catch (const char * detError) {
+	d->count = 0;
+	nlopt_set_lower_bounds(opt_local, lbCurr);
+	nlopt_set_upper_bounds(opt_local, ubCurr);
+	try {
+	  retcode = nlopt_optimize(opt_local, x, &curFun);
+	} catch (const char * detError) {
 #ifdef DEBUG
-      cout << detError << endl;
+	  cout << detError << endl;
 #endif
-      rest++; 
-      reset = true;
+	}
+	if (retcode < 0) { //this step did not work, so do not update parms
+	  printf("nlopt second step failed - %d!\n", retcode);
+	} else {
+	  int cnt = -1;
+	  for (siter ii = d->indexOpt->begin(); ii != d->indexOpt->end(); ii++)
+	    allParams[*ii] = x[++cnt];
+	}
+	//#ifdef DEBUG
+	//	printf("Completed second step optimization with %d fevals with func=%6.2g.\n", d->count, curFun);
+	//#endif
+#endif
+      } // end chosen pop minimization - while(next_comb) loop
+      epsdiff = fabs(curFun - oldFun);
+      oldFun = curFun;
+    } while(epsdiff > MIN_EPS && curFun > FTOL && numPopsInt < numdemes && loops < MAXLOOP); // end do while(epsdiff) loop
+    // after the mulitple runs thing, basically a single minimization step
+    // do the check to see if it is better than best fun - if so, hello
+    if (curFun < bestfun) {
+      bestfun = curFun;
+      memcpy(bestxopt, allParams, sizeof(double)*nparams);
     }
-    if (reset) continue;
-    if (retcode < 0) {
-      printf("nlopt second step failed - %d!\n", retcode);
-    } else if (minf < bestfun) {
-      bestfun = minf;
-      memcpy(bestxopt, x, sizeof(double)*nparams);
-    }
+  } // end multiple minimizations for (rest loop)
 #ifdef DEBUG
-    printf("Completed second step optimization with %d fevals with func=%6.2g.\n", d->count, minf);
+  cout << "Best Estimate: ";
+  copy(bestxopt, bestxopt+nparams, ostream_iterator<double>(cout, " ")); cout << endl;
 #endif
-#endif
-  }
-  free(x);
-  nlopt_destroy(opt);
+  //  if (comb) free(comb);
+  //  free(lbCurr);
+  //  free(ubCurr);
+  //  if (opt) nlopt_destroy(opt);
 #ifdef LOCAL
   nlopt_destroy(opt_local);
 #endif
+  free(x);
+  free(allParams);
+
 }
 
 /* General Method to print matrices*/
@@ -705,31 +788,29 @@ double compute_dist_and_grad(unsigned int n, const double * x, double * grad, vo
 #ifdef DEBUG
   if(d->count%200000 == 0) cout << "Done with " << d->count << " evals." << endl;
 #endif
-  uint np = d->indexOthers.size() + d->indexOpt.size();
+  uint np = d->indexOthers->size() + d->indexOpt->size();
   uint k = int((sqrt(1+8*np) - 1)/2.0);
   gsl_vector * Ne_inv = gsl_vector_alloc(k);
-  gsl_matrix * m = gsl_matrix_calloc(k,k);
   vector<double> tempMig = vector<double> ((k*(k-1))/2);
   // Have to make the N and mig things.
   // from the x and d->otherParms
-  for (uint i=0; i < d->indexOpt.size(); i++) {
-    if (d->indexOpt[i] < k)
-      Ne_inv->data[d->indexOpt[i]] = x[i];
-    else
-      tempMig[d->indexOpt[i] - k] = x[i];
-  }
-  for (uint i=0; i < d->indexOthers.size(); i++) {
-    if (d->indexOthers[i] < k)
-      Ne_inv->data[d->indexOthers[i]] = d->otherParms[i];
-    else
-      tempMig[d->indexOthers[i] - k] = d->otherParms[i];
-  }
-/*  for (uint i=0; i<k; i++) {
-    Ne_inv->data[i] = x[i];
-  }
-*/
-  // make the m matrix from ms
   int cnt = -1;
+  for (siter i=d->indexOpt->begin(); i != d->indexOpt->end(); i++) {
+    if (*i < k)
+      Ne_inv->data[*i] = x[++cnt];
+    else
+      tempMig[*i - k] = x[++cnt];
+  }
+  cnt = -1;
+  for (siter i=d->indexOthers->begin(); i != d->indexOthers->end(); i++) {
+    if (*i < k)
+      Ne_inv->data[*i] = (*(d->otherParms))[++cnt];
+    else
+      tempMig[*i - k] = (*(d->otherParms))[++cnt];
+  }
+  // make the m matrix from ms
+  cnt = -1;
+  gsl_matrix * m = gsl_matrix_calloc(k,k);
   for (uint i=0; i<k; i++) {
     for (uint j=i+1; j<k; j++) {
       m->data[i*k+j] = m->data[j*k+i] = tempMig[++cnt];
@@ -772,26 +853,24 @@ past.
 ***********************************************************/
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
                                      vector<vector<vector<int > > > &pdlist, \
-                                     bool logVal, unsigned int numPopInt, double \
+                                     bool logVal, unsigned int numPopsInt, double \
                                      merge_threshold, bool useMigration)
 {
-  /* SETUP FOR UNIFORM RANDOM GENERATION */
-  const gsl_rng_type * T; 
-  gsl_rng * r; 
-  gsl_rng_env_setup();
-  T = gsl_rng_default;
-  r = gsl_rng_alloc (T);
-  gsl_rng_set(r, time(NULL));
-  /* END RANDGEN SETUP */
-
   uint numslices = t.size();
   uint nr = obs_rates->size1 + 1;
   uint numdemes = int((sqrt(8*nr - 7))/2);
   cfnm_data * d = (cfnm_data * ) malloc(sizeof(cfnm_data));
   d->P0 = gsl_matrix_alloc(nr, nr);
   vector<vector<int> > tempPopdict;
+  set <unsigned int> tempIndexOpt;
+  set <unsigned int> tempIndexOthers;
+  vector<double> tempOtherParams;
   tempPopdict.reserve(MAXPOPS);
+  tempOtherParams.reserve((MAXPOPS*(MAXPOPS+1))/2);
   d->popdict = &tempPopdict;
+  d->indexOpt = &tempIndexOpt;
+  d->indexOthers = &tempIndexOthers;
+  d->otherParms = &tempOtherParams;
   gsl_matrix_set_identity(d->P0);
   vector<vector<double> > xopts;
   pdlist.clear();
@@ -813,14 +892,14 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       double lb[nparams];
       double ub[nparams];
       for (uint np=0; np<numdemes; np++) {
-    lb[np] = 1e-15;
-    ub[np] = 1e-1;
+	lb[np] = 1e-15;
+	ub[np] = 1e-1;
       }
       gsl_vector * temprates = average_coal_rates(d->obs_coal_rates, pdmerged);
       uint cnt = numdemes;
       for (uint ii=0; ii<numdemes; ii++) {
         for (uint jj=ii+1; jj<numdemes; jj++) {
-          lb[cnt] = 1e-15; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
+          lb[cnt] = 1e-12; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE) ? 0 : 1e-15;
           ub[cnt] = 1e-1; //(temprates->data[((2*numdemes-ii+1)*ii)/2+(jj-ii)] < LOW_COAL_RATE)  ? 1e-15 : 1e-1;
           cnt++;
         }
@@ -830,14 +909,17 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       // NFIRST Iterations to get close to some optimum. If this is not a good
       // opt then no need to do the second set.
       double bestfun = 1e200;
-      // runOptimizer runs through 1 whole combination of pops
-      runOptimizer(d, numdemes, nparams, lb, ub, NFIRST, bestxopt, bestfun);
+      // runOptimizer runs the optimizer for nloop random starts
+      runOptimizer(d, numdemes, nparams, lb, ub, NFIRST, bestxopt, bestfun, numPopsInt);
+      cout << "Finished coarse run optimizer " << bestfun << endl;
       // After NFIRST iters, check the minf if it's not very good,
       // do not do the rest of iters and check for merges.
       // If it's ok then continue on with the minimization 
       // to find the best parameters.
-      if (bestfun < COARSEFVAL) { 
-        runOptimizer(d, numdemes, nparams, lb, ub, NSECOND, bestxopt, bestfun);
+      if (bestfun > FTOL) { 
+	cout << "Doing fine run optimizer" << endl;
+        runOptimizer(d, numdemes, nparams, lb, ub, NSECOND, bestxopt, bestfun, numPopsInt);
+	cout << "Finished fine run optimizer" << endl;
       }
       //check for population mergers
       Ninv = gsl_vector_alloc(numdemes);
@@ -865,6 +947,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
     }
     cout << "Function estimate @reestimation" << bestfun << endl;
     int test;
+    cout << "Reestimating : ";
     cin >> test;
 #endif
     bestfun = 1e200;
@@ -874,7 +957,7 @@ vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, 
       currxopt.push_back(1./bestxopt[kind]);
     }
     for (uint testind=numdemes; testind < nparams; testind++) {
-      if (*(bestxopt+testind) < 1e-10) {
+      if (*(bestxopt+testind) < 1e-30) {
         currxopt.push_back(0.0);
       } else {
         currxopt.push_back(*(bestxopt+testind));

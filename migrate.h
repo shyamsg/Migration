@@ -40,7 +40,7 @@ using namespace __gnu_cxx;
 #define NFIRST         10
 #define NSECOND        35
 #define COARSEFVAL     1e-10
-#define FTOL           1e-20
+#define FTOL           5e-13
 #define MAXEVAL        500000
 #define LOW_COAL_RATE  1e-6
 
@@ -52,9 +52,9 @@ typedef struct {
   vector<vector<int> > * popdict;
   uint count;
   bool logVal;
-  vector<double> otherParms;
-  set<unsigned int> indexOthers;
-  set<unsigned int> indexOpt;
+  vector<double> * otherParms;
+  set<unsigned int> * indexOthers;
+  set<unsigned int> * indexOpt;
 } cfnm_data;
 
 void gsl_matrix_print(gsl_matrix * M);
@@ -79,7 +79,7 @@ double compute_dist_and_grad(uint n, const double * x, double * grad, void * dat
 double compute_2norm_mig(cfnm_data * d, gsl_matrix * m, gsl_vector * Ne_inv);
 vector< vector<double> > comp_params(gsl_matrix * obs_rates, vector <double> t, \
 				     vector<vector<vector<int > > > &pdlist, \
-				     bool logVal, int numPopInt, double \
+				     bool logVal, unsigned int numPopInt, double \
 				     merge_threshold, bool useMigration=false);
 #endif
 
